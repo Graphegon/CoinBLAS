@@ -84,7 +84,7 @@ class Bitcoin:
         rids = receivers[B]
         return f[rids]
 
-    def build(self, block_depth=100):
+    def build(self, block_depth=10):
         bn = 0
         Sv = maximal_matrix(UINT64)
         Rv = maximal_matrix(UINT64)
@@ -117,10 +117,10 @@ class Bitcoin:
         UNNEST (inputs) as i,
         UNNEST (outputs) as o
         WHERE block_timestamp_month = '2020-11-01'
-        AND block_number >= (
-            SELECT max(number) - {block_depth} 
-            FROM `bigquery-public-data.crypto_bitcoin.blocks`
-        )
+--        AND block_number >= (
+--            SELECT max(number) - {block_depth} 
+--            FROM `bigquery-public-data.crypto_bitcoin.blocks`
+--        )
         ORDER BY block_number, `hash`, i.index, o.index
         """
 
@@ -179,9 +179,8 @@ class Bitcoin:
             blocks=self.blocks,
             transactions=self.transactions,
             tids=self.tids,
-            senders={k: v.to_lists() for k, v in senders.items()},
-            receivers={k: v.to_lists() for k, v in receivers.items()},
-            sender_ids=sender_ids,
-            receiver_ids=receiver_ids
+            senders={k: v.to_lists() for k, v in self.senders.items()},
+            receivers={k: v.to_lists() for k, v in self.receivers.items()},
+            sender_ids=self.sender_ids,
+            receiver_ids=self.receiver_ids
         )
-    

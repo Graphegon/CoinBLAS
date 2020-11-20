@@ -1,12 +1,11 @@
 import sys
-import pickle
-
-from pygraphblas import *
-
+from pickle import dump
 
 if __name__ == '__main__':
     from .bitcoin import Bitcoin
     b = Bitcoin()
-    b.build()
+    b.build(sys.argv[1])
+    with open('blocks/metadata.pickle', 'wb') as f:
+        dump(b, f)
 
-# exposure(Aa, '18Crvj4VCgZNN7eZywoPcak7C5ZwwiCSsw', '1JHEi5gVN6eT5FeLk4D5oNiMeSUnD3ntis')
+        
