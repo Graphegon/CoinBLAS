@@ -1,186 +1,156 @@
+from pathlib import Path
 from pygraphblas import *
 from collections import defaultdict
+from pathlib import Path
+import sqlite3
+import time
+from itertools import groupby
+
 from google.cloud import bigquery
 
+from .util import *
 
-GxB_INDEX_MAX = 1 << 60
+class BitcoinLoader:
+
+    quiet = False
+    verbose = False
+
+    def __init__(self, path=None):
+        init = False
+        if path is None:
+            path = f"data/bitcoin/{time.strftime('%Y%m%d-%H%M%S')}.db"
+        if not Path(path).exists():
+            init = True
+        self.path = path
+        self.db = sqlite3.connect(self.path)
+        if init:
+            self.setup_db()
+
+    def setup_db(self):
+        e = self.db.execute
+
+        query = f"""
+        DROP TABLE IF EXISTS blocks;
+        DROP TABLE IF EXISTS transactions;
+        DROP TABLE IF EXISTS senders;
+        DROP TABLE IF EXISTS receivers;
+
+        CREATE TABLE block(
+        b_number INTEGER PRIMARY KEY,
+        b_hash TEXT NOT NULL,
+        b_timestamp TEXT NOT NULL,
+        b_timestamp_month TEXT NOT NULL,
+        b_data BLOB
+        );
+
+        CREATE TABLE tx(
+        t_id BIGINT PRIMARY KEY,
+        t_hash TEXT NOT NULL,
+        b_number BIGINT NOT NULL,
+        FOREIGN KEY (b_number) REFERENCES block (b_number)
+        );
+
+        CREATE INDEX tx_hash ON tx (t_hash);
+
+        CREATE TABLE sender(
+        s_id BIGINT PRIMARY KEY,
+        s_address TEXT
+        );
+        CREATE INDEX sender_address ON sender (s_address);
+
+        CREATE TABLE sender_row(
+        s_id BIGINT,
+        row BIGINT
+        );
+
+        CREATE TABLE receiver(
+        r_id BIGINT PRIMARY KEY,
+        r_address TEXT
+        );
+        CREATE INDEX receiver_address ON receiver (r_address);
+
+        CREATE TABLE receiver_col(
+        r_id BIGINT,
+        col BIGINT
+        );
+
+        """
+        for s in query.split(';'):
+            print(s)
+            e(s)
 
 
-def maximal_matrix(T):
-    return Matrix.sparse(T, GxB_INDEX_MAX, GxB_INDEX_MAX)
+    def get_block_id(self, number):
+        return number >> 32
 
+    def get_tx_id(self, bn, index):
+        assert bn < (1<<32)
+        assert index < (1<<16)
+        return (bn << 32) + (index << 16)
 
-class Object:
-    def __init__(self, d):
-        self.__dict__ = dict(d)
-        
-
-class Bitcoin:
-
-    def __init__(self):
-        self.blocks = defaultdict(int)
-        self.transactions = {}
-        self.tids = {}
-        self.senders = defaultdict(lambda: Vector.sparse(BOOL, GxB_INDEX_MAX))
-        self.receivers = defaultdict(lambda: Vector.sparse(BOOL, GxB_INDEX_MAX))
-        self.sender_ids = {}
-        self.receiver_ids = {}
-        self.sender_value = maximal_matrix(UINT64)
-        self.receiver_value = maximal_matrix(UINT64)
-
-    def get_tid(self, bn, index):
-        assert index < 131072
-        return (bn << 17) + index
-
-    def get_tid_block(self, id):
-        return id >> 17
-
-    def get_id(self, tid, index):
-        assert index < 65536
-        return (tid << 16) + index
-
-    def get_id_block(self, id):
-        return self.get_tid_block(id) >> 16
-
-    def write_block_files(self, bn, S, R):
-        S.to_binfile(f'blocks/Sv_block_{bn}.ssb'.encode('utf8'))
-        R.to_binfile(f'blocks/Rv_block_{bn}.ssb'.encode('utf8'))
+    def get_sender_id(self, tx_id, sender_index):
+        assert sender_index < (1<<16)
+        return tx_id + sender_index
     
-    def transaction_summary(self, t):
-        tid = self.transactions[t]
-        sv = self.sender_value[:,tid]
-        rv = self.receiver_value[:,tid]
-        print('Senders')
-        for sid, value in sv:
-            print(f'    Input address {self.sender_ids[sid]}: {value}')
-        print('Receivers')
-        for rid, value in rv:
-            print(f'    Output address {self.receiver_ids[rid]}: {value}')
+    def get_receiver_id(self, tx_id, index, input_count):
+        assert (index + input_count) < (1<<16)
+        return (tid << 16) + index + input_count
 
-    def adjacency(self):
-        return self.sender_value @ self.receiver_value
+    def insert_block_transactions(self, block_number, group):
+        self.db.execute("BEGIN")
+        txns = []
+        for i, t in enumerate(group):
+            if i == 0:
+                print(f"starting block {t.b_number}")
+                self.db.execute(
+                    'INSERT INTO block (b_number, b_hash, b_timestamp, b_timestamp_month) VALUES (?,?,?,?)',
+                    (t.b_number, t.b_hash, t.b_timestamp, t.b_timestamp_month))
+            txns.append((self.get_tx_id(t.b_number, i), t.t_hash, t.b_number))
+        self.db.executemany(
+            'INSERT INTO tx (t_id, t_hash, b_number) VALUES (?,?,?)', txns)
+        self.db.execute('COMMIT')
 
-    def flow(self, A, debug=False, sring=semiring.PLUS_PLUS, accum=binaryop.PLUS):
-        M = self.sender_value @ self.receiver_value
-        v = Vector.sparse(UINT64, M.nrows)
-        sids = self.senders[A]
-        v.assign_scalar(0, mask=sids)
-        with sring, Accum(accum):
-            for level in range(M.nrows):
-                w = v.dup()
-                if debug:
-                    ids, vals = v.to_lists()
-                    for di, dv in zip(ids, vals):
-                        diblock = self.get_id_block(di)
-                        rid = self.receiver_ids[di]
-                        print(f"{'  '*level}{diblock}: {rid}: {dv}")
-                v @= M
-                if w.iseq(v):
-                    break
-        return v
-
-    def exposure(M, A, B):
-        f = flow(M, A)
-        rids = receivers[B]
-        return f[rids]
-
-    def build(self, block_depth=10):
-        bn = 0
-        Sv = maximal_matrix(UINT64)
-        Rv = maximal_matrix(UINT64)
+    def load_month(self, month='2020-11-01'):
+        start = time.time()
         client = bigquery.Client()
 
-        bn = None
-        th = None
-        ii = None
-        oi = None
-        tid = None
-
-        inputs = set()
-        outputs = set()
-
-        query = f"""\
-        SELECT `hash`,
-            block_timestamp_month,
-            block_number,
-            block_hash,
-            input_count,
-            i.spent_transaction_hash as spent_hash,
-            i.spent_output_index as spent_index,
-            i.index as iindex,
-            i.addresses as iaddress,
-            i.value as ivalue,
-            o.index as oindex,
-            o.addresses as oaddress,
-            o.value as ovalue
-        FROM `bigquery-public-data.crypto_bitcoin.transactions`,
-        UNNEST (inputs) as i,
-        UNNEST (outputs) as o
-        WHERE block_timestamp_month = '2020-11-01'
---        AND block_number >= (
---            SELECT max(number) - {block_depth} 
---            FROM `bigquery-public-data.crypto_bitcoin.blocks`
---        )
-        ORDER BY block_number, `hash`, i.index, o.index
+        query = f"""SELECT
+        block_number as b_number,
+        block_hash as b_hash,
+        block_timestamp as b_timestamp,
+        block_timestamp_month as b_timestamp_month,
+        `hash` as t_hash,
+        FROM `bigquery-public-data.crypto_bitcoin.transactions`
+        WHERE block_timestamp_month = '{month}'
+        ORDER BY block_number, `hash`
         """
+        for bn, group in groupby(client.query(query), lambda r: r['b_number']):
+            for i, t in enumerate(group):
+                assert bn == t['b_number']
+                self.insert_block_transactions(bn, group)
+        print(f'Took {time.time() - start} seconds')
 
+    def build(self, block_depth=1000):
         for t in map(Object, client.query(query)):
-
-            if t.block_number != bn:
-                if bn is not None:
-                    print(f'Writing block files for block {bn}')
-                    self.write_block_files(bn, Sv, Rv)
-                    self.sender_value += Sv
-                    self.receiver_value += Rv
-                    Sv.clear()
-                    Rv.clear()
-                print(f'Starting block {t.block_number}')
-
-            bn = t.block_number
-
-            if t.hash != th:
-                self.blocks[bn] += 1
-                tid = self.get_tid(bn, self.blocks[bn])
-                self.transactions[t.hash] = tid
-                self.tids[tid] = t.hash
-                print(f'Starting transaction {t.hash}')
-                inputs.clear()
-                outputs.clear()
-
-            th = t.hash
-
             if t.iindex not in inputs:
-                stid = self.transactions.get(t.spent_hash, tid)
+                stid = bs.transactions.get(t.spent_hash, tid)
                 iid = self.get_id(stid, t.spent_index)
                 for ia in t.iaddress:
-                    self.senders[ia][iid] = True
+                    bs.senders[ia][iid] = iid
                 ia = t.iaddress[0]
-                self.sender_ids[iid] = ia
-                Sv[iid, tid] = t.ivalue
+                bs.sender_ids[iid] = ia
+                bs.Sv[iid, tid] = t.ivalue
                 inputs.add(t.iindex)
-                print(f'Added sender {ia}')
+                if self.verbose:
+                    print(f'Added sender {ia}')
 
             if t.oindex not in outputs:
                 oid = self.get_id(tid, t.oindex)
                 for oa in t.oaddress:
-                    self.receivers[oa][oid] = True
+                    bs.receivers[oa][oid] = iid
                 oa = t.oaddress[0]
-                self.receiver_ids[oid] = oa
-                Rv[tid, oid] = t.ovalue
+                bs.receiver_ids[oid] = oa
+                bs.Rv[tid, oid] = t.ovalue
                 outputs.add(t.oindex)
-                print(f'Added receiver {oa}')
-
-        self.write_block_files(bn, Sv, Rv)
-        self.sender_value += Sv
-        self.receiver_value += Rv
-
-    def __getstate__(self):
-        return dict(
-            blocks=self.blocks,
-            transactions=self.transactions,
-            tids=self.tids,
-            senders={k: v.to_lists() for k, v in self.senders.items()},
-            receivers={k: v.to_lists() for k, v in self.receivers.items()},
-            sender_ids=self.sender_ids,
-            receiver_ids=self.receiver_ids
-        )
+                if self.verbose:
+                    print(f'Added receiver {oa}')

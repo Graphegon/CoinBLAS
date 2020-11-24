@@ -1,19 +1,17 @@
+from itertools import islice, chain
 
-def get_tid(bn, index):
-    assert index < 131072
-    return (bn << 17) + index
-
-def get_tid_block(id):
-    return id >> 17
-
-def get_id(tid, index):
-    assert index < 65536
-    return (tid << 16) + index
-
-def get_id_block(id):
-    return get_tid_block(id) >> 16
+GxB_INDEX_MAX = 1 << 60
 
 
+def maximal_matrix(T):
+    return Matrix.sparse(T, GxB_INDEX_MAX, GxB_INDEX_MAX)
+
+class Object:
+    def __init__(self, d):
+        self.__dict__ = dict(d)
+
+def btc(value):
+    return float(value / 100000000)
 
         # state.Sv.to_binfile(bytes(b / Path(f'{bhash}_Sv.ssb')))
         # state.Rv.to_binfile(bytes(b / Path(f'{bhash}_Rv.ssb')))
@@ -34,3 +32,11 @@ def get_id_block(id):
         
         # state.Sv = Matrix.from_binfile(bytes(path / Path(f'all_Sv.ssb')))
         # state.Rv = Matrix.from_binfile(bytes(path / Path(f'all_Sv.ssb')))
+
+        
+def batch(iterable, size):
+    sourceiter = iter(iterable)
+    while True:
+        batchiter = islice(sourceiter, size)
+        yield chain([batchiter.next()], batchiter)
+        

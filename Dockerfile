@@ -1,4 +1,4 @@
-ARG BASE_CONTAINER=graphblas/pygraphblas-minimal:4.0.0
+ARG BASE_CONTAINER=graphblas/pygraphblas-minimal:4.0.0draft5
 FROM ${BASE_CONTAINER}
 
 RUN apt-get update && apt-get install -yq curl libpython3-dev python3-pip libreadline-dev git
