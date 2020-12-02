@@ -1,10 +1,6 @@
 from itertools import islice, chain
+from pygraphblas import *
 
-GxB_INDEX_MAX = 1 << 60
-
-
-def maximal_matrix(T):
-    return Matrix.sparse(T, GxB_INDEX_MAX, GxB_INDEX_MAX)
 
 class Object:
     def __init__(self, d):

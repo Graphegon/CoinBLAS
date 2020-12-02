@@ -5,9 +5,13 @@ services:
     env_file:
       - database.env
     ports:
-      - "5431:5432"
+      - "5432:5432"
     volumes:
+      - ./database-blocks:/coinblas/blocks/bitcoin/
       - ./database-data:/var/lib/postgresql/data/
       - ./dbinit:/docker-entrypoint-initdb.d/
+      - ./backup:/backup/
   builder:
     build: .
+    volumes:
+      - ./database-blocks:/coinblas/blocks/bitcoin/

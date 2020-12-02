@@ -1,4 +1,6 @@
 data
 database-data
+backup
+database-blocks
 bin
 lib
