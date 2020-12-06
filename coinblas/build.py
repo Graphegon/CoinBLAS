@@ -2,5 +2,5 @@ import sys
 from .bitcoin import *
 
 if __name__ == '__main__':
-    b = BitcoinLoader('host=db user=postgres password=postgres')
-    b.load_graph('2009-01-01', '2020-11-01')
+    b = BitcoinLoader('host=db dbname=coinblas user=postgres password=postgres')
+    b.load_graph(sys.argv[1], sys.argv[2])
