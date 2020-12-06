@@ -7,6 +7,7 @@ from textwrap import dedent
 from hashlib import sha256
 from base64 import b32encode
 from pygraphblas import Matrix, Vector
+import psycopg2 as pg
 
 GxB_INDEX_MAX = 1 << 60
 
@@ -97,3 +98,11 @@ def unique_identifier(name, prefix='pq_'):
     b32_digest = b32encode(sha256(name.encode()).digest())[:52]
 
     return prefix + b32_digest.decode()
+
+
+def curse(func):
+    def _decorator(self, *args, **kwargs):
+        with pg.connect(self.dsn) as conn:
+            with conn.cursor() as curs:
+                return func(self, curs, *args, **kwargs)
+    return _decorator

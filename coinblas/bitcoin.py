@@ -75,24 +75,30 @@ class BitcoinLoader:
         print(f'Loading {month}')
         query = f"""
         WITH TIDS AS (
-        SELECT block_number, block_hash, block_timestamp, block_timestamp_month, `hash`, inputs, outputs,
-        (block_number << 32) + (ROW_NUMBER() OVER(PARTITION BY block_number order by block_number, `hash`) << 16) as t_id
-        FROM `bigquery-public-data.crypto_bitcoin.transactions` ORDER BY block_number, `hash`)
+            SELECT 
+                block_number, 
+                block_hash, 
+                block_timestamp, 
+                block_timestamp_month, `hash`, inputs, outputs,
+                (block_number << 32) + (ROW_NUMBER() 
+                    OVER(PARTITION BY block_number ORDER BY block_number, `hash`) << 16) AS t_id
+        FROM `bigquery-public-data.crypto_bitcoin.transactions` 
+        ORDER BY block_number, `hash`)
 
         SELECT
-        t.t_id as t_id,
-        t.block_number as b_number,
-        t.block_hash as b_hash,
-        t.block_timestamp as b_timestamp,
-        t.block_timestamp_month as b_timestamp_month,
-        t.`hash` as t_hash,
-        spents.t_id as i_spent_tid,
-        i.spent_output_index as i_spent_index,
-        i.value as i_value,
-        i.index as i_index,
-        o.index as o_index,
-        o.addresses as o_addresses,
-        o.value as o_value
+            t.t_id as t_id,
+            t.block_number as b_number,
+            t.block_hash as b_hash,
+            t.block_timestamp as b_timestamp,
+            t.block_timestamp_month as b_timestamp_month,
+            t.`hash` as t_hash,
+            spents.t_id as i_spent_tid,
+            i.spent_output_index as i_spent_index,
+            i.value as i_value,
+            i.index as i_index,
+            o.index as o_index,
+            o.addresses as o_addresses,
+            o.value as o_value
         FROM tids t LEFT JOIN UNNEST(inputs) as i,
         UNNEST(outputs) as o
         LEFT JOIN tids spents on (i.spent_transaction_hash = spents.`hash`)
