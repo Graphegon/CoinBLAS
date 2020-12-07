@@ -5,7 +5,7 @@ services:
     env_file:
       - database.env
     ports:
-      - "5432:5432"
+      - "5433:5432"
     volumes:
       - ./database-blocks:/coinblas/blocks/bitcoin/
       - ./database-data:/var/lib/postgresql/data/

@@ -11,23 +11,29 @@ import psycopg2 as pg
 
 GxB_INDEX_MAX = 1 << 60
 
+
 def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
     args = [iter(iterable)] * n
     return zip_longest(*args, fillvalue=fillvalue)
 
+
 def maximal_matrix(T):
     return Matrix.sparse(T, GxB_INDEX_MAX, GxB_INDEX_MAX)
+
 
 def maximal_vector(T):
     return Vector.sparse(T, GxB_INDEX_MAX)
 
+
 def btc(value):
     return float(value / 100000000)
 
-_re_format = re.compile(r'%\(([a-z]+)\)[a-z]')
-_re_identifier = re.compile(r'^[_a-z][_a-z0-9]*$', re.IGNORECASE)
+
+_re_format = re.compile(r"%\(([a-z]+)\)[a-z]")
+_re_identifier = re.compile(r"^[_a-z][_a-z0-9]*$", re.IGNORECASE)
 _statements = WeakKeyDictionary()
+
 
 def prepared(f):
     """Decorator that prepares an SQL statement.
@@ -44,11 +50,8 @@ def prepared(f):
     the decorated function. These are automatically applied.
     """
 
-    d = dedent(f.__doc__.split('\n', 1)[1])
-    query = "\n".join(
-        line for line in d.split('\n')
-        if line.startswith("    ")
-    ) or d
+    d = dedent(f.__doc__.split("\n", 1)[1])
+    query = "\n".join(line for line in d.split("\n") if line.startswith("    ")) or d
 
     arg_count = query.count("$")
     if arg_count:
@@ -86,7 +89,8 @@ def prepared(f):
 
     return wrapper
 
-def unique_identifier(name, prefix='pq_'):
+
+def unique_identifier(name, prefix="pq_"):
     """Create a unique identifier from a name and a (non-empty) prefix.
     ValueError is raised if prefix is not a valid postgresql identifier of maximum length 11 characters.
     """
@@ -102,7 +106,7 @@ def unique_identifier(name, prefix='pq_'):
 
 def curse(func):
     def _decorator(self, *args, **kwargs):
-        with pg.connect(self.dsn) as conn:
-            with conn.cursor() as curs:
-                return func(self, curs, *args, **kwargs)
+        with self.chain.cursor as curs:
+            return func(self, curs, *args, **kwargs)
+
     return _decorator

@@ -1,3 +1,8 @@
+CREATE DATABASE coinblas;
+\c coinblas
+	
+BEGIN;
+
 CREATE SCHEMA bitcoin;
 
 CREATE TABLE bitcoin.block(
@@ -55,4 +60,4 @@ BEGIN
     END LOOP;
 END
 $$;
-
+COMMIT;

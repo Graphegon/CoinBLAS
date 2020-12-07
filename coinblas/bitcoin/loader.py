@@ -16,16 +16,17 @@ from google.cloud import bigquery
 from .util import *
 from pygraphblas import *
 
-POOL_SIZE=8
+POOL_SIZE = 8
 
 logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
 logger = logging.getLogger(__name__)
 
+
 def before_sleep_log():
-    logger.debug('Retrying')
+    logger.debug("Retrying")
 
-class BitcoinLoader:
 
+class Blockchain:
     def __init__(self, dsn=None, verbose=False, quiet=False):
         self.dsn = dsn
         self.verbose = verbose
@@ -37,22 +38,28 @@ class BitcoinLoader:
             (b_number, b_hash, b_timestamp, b_timestamp_month)
             VALUES (%s, %s, %s, %s)
             """,
-            (t.b_number, t.b_hash, t.b_timestamp, t.b_timestamp_month))
-
+            (t.b_number, t.b_hash, t.b_timestamp, t.b_timestamp_month),
+        )
 
     def insert_transaction_ids(self, curs, txs):
-        execute_values(curs,
+        execute_values(
+            curs,
             """
             INSERT INTO bitcoin.tx
             (t_hash, t_id) VALUES %s
-            """, txs)
+            """,
+            txs,
+        )
 
     def insert_addresses_ids(self, curs, oads):
-        execute_values(curs,
+        execute_values(
+            curs,
             """
             INSERT INTO bitcoin.address
             (a_address, a_id) VALUES %s
-            """, oads)
+            """,
+            oads,
+        )
 
     def load_graph(self, start=None, end=None):
         with pg.connect(self.dsn) as conn:
@@ -60,19 +67,21 @@ class BitcoinLoader:
                 curs.execute(
                     """select i::date
                     from generate_series(%s::date, %s::date, interval '1 month') i
-                    """, (start, end))
+                    """,
+                    (start, end),
+                )
                 months = [x[0] for x in curs.fetchall()]
         pool = Pool(POOL_SIZE)
-        #result = list(map(self.load_graph_month, months))
+        # result = list(map(self.load_graph_month, months))
         result = list(pool.map(self.load_graph_month, months, 1))
         return result
 
     @retry(stop=stop_after_attempt(3), before_sleep=before_sleep_log)
-    def load_graph_month(self, month, path='/coinblas/blocks/bitcoin'):
+    def load_graph_month(self, month, path="/coinblas/blocks/bitcoin"):
         tic = time()
         client = bigquery.Client()
 
-        print(f'Loading {month}')
+        print(f"Loading {month}")
         query = f"""
         WITH TIDS AS (
             SELECT 
@@ -106,20 +115,23 @@ class BitcoinLoader:
         ORDER BY t.block_number, t.`hash`, i.index, o.index
         """
         with pg.connect(self.dsn) as conn:
-            for bn, group in groupby(client.query(query), lambda r: r['b_number']):
+            for bn, group in groupby(client.query(query), lambda r: r["b_number"]):
                 with conn.cursor() as curs:
-                    curs.execute('select exists (select 1 from bitcoin.block where b_number = %s)', (bn,))
+                    curs.execute(
+                        "select exists (select 1 from bitcoin.block where b_number = %s)",
+                        (bn,),
+                    )
                     if curs.fetchone()[0]:
-                        print(f'Block {bn} already done.')
+                        print(f"Block {bn} already done.")
                         continue
                     self.build_block_graph(curs, group, bn, path)
                 conn.commit()
 
-            print(f'Took {(time() - tic)/60.0} minutes for {month}')
+            print(f"Took {(time() - tic)/60.0} minutes for {month}")
 
     def build_block_graph(self, curs, group, bn, path):
-        Sv = maximal_matrix(UINT64)
-        Rv = maximal_matrix(UINT64)
+        Iv = maximal_matrix(UINT64)
+        Ov = maximal_matrix(UINT64)
         inputs = set()
         outputs = set()
         addrs = []
@@ -143,20 +155,20 @@ class BitcoinLoader:
             t_hash = t.t_hash
 
             if t.i_index is None:
-                Sv[b_id, t_id] = 0
+                Iv[b_id, t_id] = 0
             elif t.i_index not in inputs:
                 i_id = t.i_spent_tid + t.i_spent_index
-                Sv[i_id, t_id] = t.i_value
+                Iv[i_id, t_id] = t.i_value
                 inputs.add(t.i_index)
 
             if t.o_index not in outputs:
                 o_id = t_id + t.o_index
                 for o_address in t.o_addresses:
                     addrs.append((o_address, o_id))
-                Rv[t_id, o_id] = t.o_value
+                Ov[t_id, o_id] = t.o_value
                 outputs.add(t.o_index)
 
-        print(f'Took {time()-tic:.4f} to parse block {bn}.')
+        print(f"Took {time()-tic:.4f} to parse block {bn}.")
         self.insert_block(curs, t)
         self.insert_transaction_ids(curs, txs)
         self.insert_addresses_ids(curs, addrs)
@@ -164,10 +176,20 @@ class BitcoinLoader:
         tic = time()
         b = Path(path) / Path(t.b_hash[-2]) / Path(t.b_hash[-1])
         b.mkdir(parents=True, exist_ok=True)
-        print(f'Writing {Sv.nvals} sender vals for {bn}.')
-        Svf = b / Path(f'{bn}_{t.b_hash}_Sv.ssb')
-        print(f'Writing {Rv.nvals} receiver vals for {bn}.')
-        Rvf = b / Path(f'{bn}_{t.b_hash}_Rv.ssb')
-        Sv.to_binfile(bytes(Svf))
-        Rv.to_binfile(bytes(Rvf))
-        print(f'matrix block {bn} write took {time()-tic:.4f}')
+        print(f"Writing {Iv.nvals} sender vals for {bn}.")
+        Ivf = b / Path(f"{bn}_{t.b_hash}_Iv.ssb")
+        print(f"Writing {Ov.nvals} receiver vals for {bn}.")
+        Ovf = b / Path(f"{bn}_{t.b_hash}_Ov.ssb")
+        print(f"Writing {Ov.nvals} receiver vals for {bn}.")
+        Avf = b / Path(f"{bn}_{t.b_hash}_Av_PLUS_SECOND.ssb")
+        Iv.to_binfile(bytes(Ivf))
+        Ov.to_binfile(bytes(Ovf))
+        with semiring.PLUS_SECOND:
+            Av = Iv @ Ov
+        Av.to_binfile(bytes(Avf))
+        print(f"matrix block {bn} write took {time()-tic:.4f}")
+
+
+if __name__ == "__main__":
+    b = Blockchain("host=db dbname=coinblas user=postgres password=postgres")
+    b.load_graph(sys.argv[1], sys.argv[2])
