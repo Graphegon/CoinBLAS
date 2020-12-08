@@ -40,4 +40,8 @@ class Spend:
             return Tx(self.chain, id=self.spent_vector.to_lists()[0][0])
 
     def __repr__(self):
-        return f"<Spend: {self.address} value: {btc(self.value)}>"
+        return f"<{self.__class__.__name__}: {self.address.address} value: {btc(self.value)}>"
+
+
+class Exposure(Spend):
+    pass

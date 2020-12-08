@@ -68,8 +68,8 @@ class Blockchain:
                 )
                 months = [x[0] for x in curs.fetchall()]
         pool = Pool(POOL_SIZE)
-        result = list(map(self.load_graph_month, months))
-        #result = list(pool.map(self.load_graph_month, months, 1))
+        #result = list(map(self.load_graph_month, months))
+        result = list(pool.map(self.load_graph_month, months, 1))
         return result
 
     #@retry(stop=stop_after_attempt(3))

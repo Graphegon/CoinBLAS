@@ -33,6 +33,7 @@ class Address:
 
     @curse
     def flow(self, curs, end, debug=False):
+        from .spend import Exposure
         
         if isinstance(end, str):
             end = Address(self.chain, end)
@@ -87,6 +88,7 @@ class Address:
         for i, v in end_v:
             z_end[i - start_min] = v
 
+        z_send = z_start[z_end.pattern()]
         for level in range(IO.nvals):
             w = z_start[z_end.pattern()]
             with semiring.PLUS_MIN, Accum(binaryop.MIN):
@@ -94,7 +96,7 @@ class Address:
             z_send = z_start[z_end.pattern()]
             if debug:
                 if z_send.nvals > found:
-                    print(f"After round {level} searched {z_start.nvals} "
+                    print(f"After {level} rounds searched {z_start.nvals} "
                           f"addresses found {found+1} of {end_nvals} "
                           f"after {time()-tic:.4f} seconds")
                     found = z_send.nvals
@@ -102,7 +104,7 @@ class Address:
                 break
         if debug:
             print(f"Flow search took {time()-tic:.4f}")
-        return z_send
+        return [Exposure(self.chain, i + start_min, v) for i, v in z_send]
 
     def __repr__(self):
         return f"<Address: {self.address}>"

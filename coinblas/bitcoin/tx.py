@@ -4,31 +4,16 @@ from .spend import Spend
 
 class Tx:
 
-    def __init__(self, chain, hash=None, id=None):
-        if not (hash or id):
-            raise TypeError('Must provide at least a hash or id')
+    def __init__(self, chain, id):
         self.chain = chain
-        with chain.conn.cursor() as curs:
-            if hash:
-                self.hash = hash
-                self.id = self.hashes_to_ids([hash])
-            elif id:
-                self.id = id
-                self.hash = self.ids_to_hashes([id])
+        self.id = id
 
+    @lazy_property
     @curse
     @query
-    def hashes_to_ids(self, curs):
+    def hash(self, curs):
         """
-        SELECT t_id FROM bitcoin.tx WHERE t_hash = ANY (%s)
-        """
-        return curs.fetchone()[0]
-
-    @curse
-    @query
-    def ids_to_hashes(self, curs):
-        """
-        SELECT t_hash FROM bitcoin.tx WHERE t_id = ANY (%s)
+        SELECT t_hash FROM bitcoin.tx WHERE t_id = {self.id}
         """
         return curs.fetchone()[0]
 
@@ -72,9 +57,9 @@ class Tx:
         outputs = self.outputs
 
         if len(inputs) == 1 and inputs[0].coinbase:
-            print("Coinbase")
+            print("Coinbase Transaction")
         else:
-            print("Senders")
+            print("  Inputs")
             for i in inputs:
                 if i.address is None:
                     print(f'Unknown input {i.id}')
@@ -84,7 +69,7 @@ class Tx:
                     print(f"        from {i.tx.hash} in block {i.tx.block_number}")
                 else:
                     print(f"        from unknown")
-        print("Receivers")
+        print("  Outputs")
         for o in outputs:
             if o.address is None:
                 print(f'Unknown output {i.id}')
