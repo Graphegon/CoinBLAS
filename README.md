@@ -1,9 +1,12 @@
-# coinblas
+# CoinBLAS
 
-# GraphBLAS all the Cryptocurrency
+# GraphBLAS all the Bitcoin
 
-CoinBLAS is a Graph Linear Algebra analysis platform for bitcoin based
-on the GraphBLAS graph API and the pygraphblas Python binding.
+CoinBLAS is a Graph Linear Algebra analysis platform for bitcoin that
+uses the GraphBLAS graph API via pygraphblas.
+
+If you have enough RAM, BigQuery money, cores and time you can load
+all of bitcoin history into in-memory graphs.
 
 # Full-flow Analysis
 
