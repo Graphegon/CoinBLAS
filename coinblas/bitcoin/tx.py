@@ -1,77 +1,74 @@
-from coinblas.util import prepared, curse
+from coinblas.util import query, curse, get_block_number, get_block_id, btc, lazy_property
 from .spend import Spend
 
 
 class Tx:
+
     def __init__(self, chain, hash=None, id=None):
+        if not (hash or id):
+            raise TypeError('Must provide at least a hash or id')
         self.chain = chain
-        with chain.cursor as curs:
+        with chain.conn.cursor() as curs:
             if hash:
                 self.hash = hash
-                self.id = self.hash_id()
+                self.id = self.hashes_to_ids([hash])
             elif id:
                 self.id = id
-                self.hash = self.id_hash()
+                self.hash = self.ids_to_hashes([id])
 
     @curse
-    @prepared
-    def insert(self, curs):
+    @query
+    def hashes_to_ids(self, curs):
         """
-        INSERT INTO bitcoin.tx (t_hash, t_id) VALUES %s
-        """
-
-    @curse
-    @prepared
-    def hash_id(self, curs):
-        """
-        SELECT t_id FROM bitcoin.tx WHERE t_hash = %(hash)s
+        SELECT t_id FROM bitcoin.tx WHERE t_hash = ANY (%s)
         """
         return curs.fetchone()[0]
 
     @curse
-    @prepared
-    def id_hash(self, curs):
+    @query
+    def ids_to_hashes(self, curs):
         """
-        SELECT t_hash FROM bitcoin.tx WHERE t_id = %(id)s
+        SELECT t_hash FROM bitcoin.tx WHERE t_id = ANY (%s)
         """
         return curs.fetchone()[0]
 
-    @property
+    @lazy_property
     def block_number(self):
-        return self.id >> 32
+        return get_block_number(self.id)
 
-    @property
+    @lazy_property
     def block_id(self):
-        return (self.id >> 32) << 32
+        return get_block_id(self.id)
 
-    @property
+    @lazy_property
     def block(self):
         from .block import Block
-
         return Block(self.chain, self.block_number)
 
-    @property
+    @lazy_property
     def input_vector(self):
-        return self.chain.Iv[:, self.id]
+        return self.chain.IT[:, self.id]
 
-    @property
+    @lazy_property
     def output_vector(self):
-        return self.chain.Ov[self.id, :]
+        return self.chain.TO[self.id, :]
 
     @property
     def inputs(self):
-        return [Spend(self.chain, i, v) for i, v in self.input_vector]
+        for i, v in self.input_vector:
+            yield Spend(self.chain, i, v)
 
     @property
     def outputs(self):
-        return [Spend(self.chain, i, v) for i, v in self.output_vector]
+        for i, v in self.output_vector:
+            yield Spend(self.chain, i, v)
 
     @curse
     def summary(self, curs):
         print(f"Summary for {self.hash}")
         print(f"Block: {self.block_number}")
 
-        inputs = self.inputs
+        inputs = list(self.inputs)
         outputs = self.outputs
 
         if len(inputs) == 1 and inputs[0].coinbase:
@@ -79,20 +76,24 @@ class Tx:
         else:
             print("Senders")
             for i in inputs:
-                addr = i.address(curs)
-                print(f"    {addr.address}: {btc(i.value):.8f}")
+                if i.address is None:
+                    print(f'Unknown input {i.id}')
+                    continue
+                print('    ', i)
                 if i.spent_vector:
                     print(f"        from {i.tx.hash} in block {i.tx.block_number}")
                 else:
                     print(f"        from unknown")
         print("Receivers")
         for o in outputs:
-            addr = o.address(curs)
-            print(f"    {addr.address}: {btc(o.value):.8f}")
+            if o.address is None:
+                print(f'Unknown output {i.id}')
+                continue
+            print('    ', o)
             if o.spent_vector:
                 print(f"        to {o.spent.hash} in block {o.spent.block_number}")
             else:
                 print(f"        to unknown")
 
     def __repr__(self):
-        return f"<Transaction {self.hash}>"
+        return f"<Tx: {self.hash}>"

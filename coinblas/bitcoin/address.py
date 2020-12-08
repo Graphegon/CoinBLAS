@@ -1,4 +1,7 @@
-from coinblas.util import prepared, curse
+from time import time
+
+from coinblas.util import query, curse, get_block_number, maximal_vector, Vector
+from pygraphblas import lib, unaryop, monoid, semiring, UINT64, Accum, binaryop
 
 
 class Address:
@@ -7,21 +10,19 @@ class Address:
         self.address = address
 
     @curse
-    @prepared
+    @query
     def spend_ids(self, curs):
         """
-        SELECT a_id FROM bitcoin.address WHERE a_address =  %(address)s
+        SELECT a_id FROM bitcoin.address WHERE a_address = '{self.address}'
         """
         return [i[0] for i in curs.fetchall()]
 
+    @property
     @curse
     def spends(self, curs):
         from .spend import Spend
-
-        return [
-            Spend(self.chain, i, self.chain.Iv[i, :].reduce_int())
-            for i in self.spend_ids()
-        ]
+        for i in self.spend_ids():
+            yield Spend(self.chain, i, self.chain.IT[i, :].reduce_int())
 
     @curse
     def id_vector(self, curs, assign=0):
@@ -31,67 +32,77 @@ class Address:
         return v
 
     @curse
-    def flow(self, curs, start_addr, end_addr, debug=False):
+    def flow(self, curs, end, debug=False):
+        
+        if isinstance(end, str):
+            end = Address(self.chain, end)
+
         if debug:
-            print(f"Tracing {start_addr} to {end_addr}")
+            print(f"Tracing {self.address} to {end.address}")
             tic = time()
 
-        start = start.id_vector(start_addr, assign=GxB_INDEX_MAX)
-        end = end.id_vector(end_addr, assign=0)
-        end_nvals = end.nvals
+        start_v = self.id_vector(assign=lib.GxB_INDEX_MAX)
+        end_v = end.id_vector(assign=0)
+        
+        end_nvals = end_v.nvals
         found = 0
 
-        if not len(start):
+        if not len(start_v):
             if debug:
-                print("No starting address occurences.")
+                print("No starting address spends.")
             return
-        if not len(end):
+        if not len(end_v):
             if debug:
-                print("No ending address occurences.")
+                print("No ending address spends.")
             return
 
-        end_max = end.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MAX_MONOID)
-        start_min = start.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MIN_MONOID)
+        end_max = end_v.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MAX_MONOID)
+        start_min = start_v.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MIN_MONOID)
 
         if end_max < start_min:
             if debug:
-                print(f"No {start_addr} occurences found before any {end_addr}")
+                print(f"No {self.address} spends found before any {end.address}")
                 return
         if debug:
-            print(f"{start.nvals} occurences of {start_addr}")
-            print(f"{end.nvals} occurences of {end_addr}")
+            print(f"{start_v.nvals} occurences of {self.address}")
+            print(f"{end_v.nvals} occurences of {end.address}")
 
-        sAv = self.Av.extract_matrix(
-            slice(start_min, end_max), slice(start_min, end_max)
+        IO = self.chain.IO.extract_matrix(
+            slice(start_min, end_max),
+            slice(start_min, end_max)
         )
 
-        print(
-            f"Between blocks {self.get_block_number(start_min)} "
-            f"and {self.get_block_number(end_max)} "
-            f"search space is {sAv.nvals} edges"
-        )
+        if debug:
+            print(
+                f"Between blocks {get_block_number(start_min)} "
+                f"and {get_block_number(end_max)} "
+                f"search space is {IO.nvals} edges"
+            )
 
-        z_start = Vector.sparse(UINT64, sAv.nrows)
-        for i, v in start:
+        z_start = Vector.sparse(UINT64, IO.nrows)
+        for i, v in start_v:
             z_start[i - start_min] = v
 
-        z_end = Vector.sparse(UINT64, sAv.nrows)
-        for i, v in end:
+        z_end = Vector.sparse(UINT64, IO.nrows)
+        for i, v in end_v:
             z_end[i - start_min] = v
 
-        for level in range(sAv.nvals):
+        for level in range(IO.nvals):
             w = z_start[z_end.pattern()]
             with semiring.PLUS_MIN, Accum(binaryop.MIN):
-                z_start @= sAv
+                z_start @= IO
             z_send = z_start[z_end.pattern()]
             if debug:
-                print(f"After round {level} searched {z_start.nvals} addresses.")
                 if z_send.nvals > found:
-                    print(f"Found {found+1} of {end_nvals} after {time()-tic:.4f}")
+                    print(f"After round {level} searched {z_start.nvals} "
+                          f"addresses found {found+1} of {end_nvals} "
+                          f"after {time()-tic:.4f} seconds")
                     found = z_send.nvals
             if z_send.nvals == end_nvals and w.iseq(z_send):
                 break
-        print(f"Flow search took {time()-tic:.4f}")
-        s_ids, s_vals = z_send.to_lists()
+        if debug:
+            print(f"Flow search took {time()-tic:.4f}")
+        return z_send
 
-        return list(zip(self.vector_address(curs, s_ids), map(btc, s_vals)))
+    def __repr__(self):
+        return f"<Address: {self.address}>"

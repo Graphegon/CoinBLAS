@@ -14,4 +14,16 @@ services:
   builder:
     build: .
     volumes:
-      - ./database-blocks:/coinblas/blocks/bitcoin/
+      - .:/home/jovyan/coinblas
+    environment:
+      GOOGLE_APPLICATION_CREDENTIALS: /home/jovyan/coinblas/pgsodium-e46130a430c2.json
+  notebook:
+    build: .
+    ports:
+      - "8888:8888"
+    volumes:
+      - .:/home/jovyan/coinblas
+    environment:
+      NB_UID: 1000
+      NB_GID: 1000
+      GOOGLE_APPLICATION_CREDENTIALS: /home/jovyan/coinblas/pgsodium-e46130a430c2.json

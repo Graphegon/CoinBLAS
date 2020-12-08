@@ -11,6 +11,14 @@ import psycopg2 as pg
 
 GxB_INDEX_MAX = 1 << 60
 
+def get_tx_id(id):
+    return (id >> 16) << 16
+
+def get_block_number(id):
+    return id >> 32
+
+def get_block_id(id):
+    return get_block_number(id) << 32
 
 def grouper(iterable, n, fillvalue=None):
     "Collect data into fixed-length chunks or blocks"
@@ -35,7 +43,7 @@ _re_identifier = re.compile(r"^[_a-z][_a-z0-9]*$", re.IGNORECASE)
 _statements = WeakKeyDictionary()
 
 
-def prepared(f):
+def query(f):
     """Decorator that prepares an SQL statement.
 
     The statement must be present in the function's docstring,
@@ -51,40 +59,14 @@ def prepared(f):
     """
 
     d = dedent(f.__doc__.split("\n", 1)[1])
-    query = "\n".join(line for line in d.split("\n") if line.startswith("    ")) or d
-
-    arg_count = query.count("$")
-    if arg_count:
-        fargs = "(" + ", ".join(["%s"] * arg_count) + ")"
-    else:
-        fargs = None
-
-    fname = f.__name__
-    for m in _re_format.finditer(query):
-        fname += "_%%(%s)s" % m.group(1)
-
+    doc_query = "\n".join(line for line in d.split("\n") if line.startswith("    ")) or d
+    arg_count = doc_query.count("%s")
     @wraps(f)
     def wrapper(self, cursor, *args, **kwargs):
         conn = cursor.connection
-        name = fname % self.__dict__
-        identifier = unique_identifier(name)
-        key = "_prepared_%s" % name
-
-        try:
-            prepared = _statements[conn]
-        except KeyError:
-            prepared = _statements[conn] = set()
-
-        if key not in prepared:
-            prepared.add(key)
-            d = self.__dict__.copy()
-            cursor.execute("PREPARE %s AS\n%s" % (identifier, query), d)
-
         params = args[:arg_count]
-        statement = "EXECUTE " + identifier
-        if fargs is not None:
-            statement += " " + fargs
-        cursor.execute(statement, params or None)
+        query = eval("""f'''"""+doc_query+"""'''""", dict(self=self))
+        cursor.execute(query, params or None)
         return f(self, cursor, *args[arg_count:], **kwargs)
 
     return wrapper
@@ -106,7 +88,38 @@ def unique_identifier(name, prefix="pq_"):
 
 def curse(func):
     def _decorator(self, *args, **kwargs):
-        with self.chain.cursor as curs:
+        with self.chain.conn.cursor() as curs:
             return func(self, curs, *args, **kwargs)
 
     return _decorator
+
+
+class lazy_property:
+    name = None
+
+    @staticmethod
+    def func(instance):
+        raise TypeError(
+            'Cannot use lazy_property instance without calling '
+            '__set_name__() on it.'
+        )
+
+    def __init__(self, func, name=None):
+        self.real_func = func
+        self.__doc__ = getattr(func, '__doc__')
+
+    def __set_name__(self, owner, name):
+        if self.name is None:
+            self.name = name
+            self.func = self.real_func
+        elif name != self.name:
+            raise TypeError(
+                "Cannot assign the same lazy_property to two different names "
+                "(%r and %r)." % (self.name, name)
+            )
+
+    def __get__(self, instance, cls=None):
+        if instance is None:
+            return self
+        res = instance.__dict__[self.name] = self.func(instance)
+        return res

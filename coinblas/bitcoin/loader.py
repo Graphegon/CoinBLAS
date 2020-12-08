@@ -13,17 +13,13 @@ from psycopg2.extras import execute_values
 from tenacity import retry, stop_after_attempt
 from google.cloud import bigquery
 
-from .util import *
+from coinblas.util import *
 from pygraphblas import *
 
 POOL_SIZE = 8
 
-logging.basicConfig(stream=sys.stderr, level=logging.DEBUG)
+logging.basicConfig(stream=sys.stderr, level=logging.INFO)
 logger = logging.getLogger(__name__)
-
-
-def before_sleep_log():
-    logger.debug("Retrying")
 
 
 class Blockchain:
@@ -72,12 +68,12 @@ class Blockchain:
                 )
                 months = [x[0] for x in curs.fetchall()]
         pool = Pool(POOL_SIZE)
-        # result = list(map(self.load_graph_month, months))
-        result = list(pool.map(self.load_graph_month, months, 1))
+        result = list(map(self.load_graph_month, months))
+        #result = list(pool.map(self.load_graph_month, months, 1))
         return result
 
-    @retry(stop=stop_after_attempt(3), before_sleep=before_sleep_log)
-    def load_graph_month(self, month, path="/coinblas/blocks/bitcoin"):
+    #@retry(stop=stop_after_attempt(3))
+    def load_graph_month(self, month, path="database-blocks"):
         tic = time()
         client = bigquery.Client()
 
@@ -130,8 +126,11 @@ class Blockchain:
             print(f"Took {(time() - tic)/60.0} minutes for {month}")
 
     def build_block_graph(self, curs, group, bn, path):
-        Iv = maximal_matrix(UINT64)
-        Ov = maximal_matrix(UINT64)
+        BT = maximal_matrix(UINT64)
+        TB = maximal_matrix(UINT64)
+        IT = maximal_matrix(UINT64)
+        TO = maximal_matrix(UINT64)
+
         inputs = set()
         outputs = set()
         addrs = []
@@ -151,21 +150,27 @@ class Blockchain:
                 outputs.clear()
                 t_id = t.t_id
                 txs.append((t.t_hash, t_id))
+                BT[b_id, t_id] = 0
 
             t_hash = t.t_hash
 
             if t.i_index is None:
-                Iv[b_id, t_id] = 0
+                IT[b_id, t_id] = 0
             elif t.i_index not in inputs:
-                i_id = t.i_spent_tid + t.i_spent_index
-                Iv[i_id, t_id] = t.i_value
+                spent_tid = t.i_spent_tid
+                i_value = t.i_value
+                i_id = spent_tid + t.i_spent_index
+                IT[i_id, t_id] = i_value
+                TB[spent_tid, b_id] = TB.get(spent_tid, b_id, 0) + i_value
                 inputs.add(t.i_index)
 
             if t.o_index not in outputs:
                 o_id = t_id + t.o_index
+                o_value = t.o_value
                 for o_address in t.o_addresses:
                     addrs.append((o_address, o_id))
-                Ov[t_id, o_id] = t.o_value
+                TO[t_id, o_id] = o_value
+                BT[b_id, t_id] = BT[b_id, t_id] + o_value
                 outputs.add(t.o_index)
 
         print(f"Took {time()-tic:.4f} to parse block {bn}.")
@@ -176,17 +181,23 @@ class Blockchain:
         tic = time()
         b = Path(path) / Path(t.b_hash[-2]) / Path(t.b_hash[-1])
         b.mkdir(parents=True, exist_ok=True)
-        print(f"Writing {Iv.nvals} sender vals for {bn}.")
-        Ivf = b / Path(f"{bn}_{t.b_hash}_Iv.ssb")
-        print(f"Writing {Ov.nvals} receiver vals for {bn}.")
-        Ovf = b / Path(f"{bn}_{t.b_hash}_Ov.ssb")
-        print(f"Writing {Ov.nvals} receiver vals for {bn}.")
-        Avf = b / Path(f"{bn}_{t.b_hash}_Av_PLUS_SECOND.ssb")
-        Iv.to_binfile(bytes(Ivf))
-        Ov.to_binfile(bytes(Ovf))
-        with semiring.PLUS_SECOND:
-            Av = Iv @ Ov
-        Av.to_binfile(bytes(Avf))
+        print(f"Writing {BT.nvals} BT vals for {bn}.")
+        BTf = b / Path(f"{bn}_{t.b_hash}_BT.ssb")
+        
+        print(f"Writing {TB.nvals} TB vals for {bn}.")
+        TBf = b / Path(f"{bn}_{t.b_hash}_TB.ssb")
+        
+        print(f"Writing {IT.nvals} IT vals for {bn}.")
+        ITf = b / Path(f"{bn}_{t.b_hash}_IT.ssb")
+        
+        print(f"Writing {TO.nvals} TO vals for {bn}.")
+        TOf = b / Path(f"{bn}_{t.b_hash}_TO.ssb")
+        
+        BT.to_binfile(bytes(BTf))
+        TB.to_binfile(bytes(TBf))
+        IT.to_binfile(bytes(ITf))
+        TO.to_binfile(bytes(TOf))
+        
         print(f"matrix block {bn} write took {time()-tic:.4f}")
 
 

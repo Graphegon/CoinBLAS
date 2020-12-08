@@ -1,40 +1,43 @@
-from coinblas.util import prepared, curse
-
+from coinblas.util import query, curse, get_tx_id, get_block_id, lazy_property, btc
 
 class Spend:
     def __init__(self, chain, id, value):
         self.chain = chain
         self.id = id
-        self.t_id = self.chain.get_tx_id(self.id)
+        self.t_id = get_tx_id(self.id)
         self.value = value
 
-    @property
+    @lazy_property
     def coinbase(self):
-        return self.id == self.chain.get_block_id(self.id)
+        return self.id == get_block_id(self.id)
 
+    @lazy_property
     @curse
-    @prepared
+    @query
     def address(self, curs):
         """
-        SELECT a_address from bitcoin.address where a_id = %(id)s
+        SELECT a_address from bitcoin.address where a_id = {self.id}
         """
         from .address import Address
+        r = curs.fetchone()
+        if r is None:
+            return
+        return Address(self.chain, r[0])
 
-        return Address(self.chain, curs.fetchone()[0])
-
-    @property
+    @lazy_property
     def tx(self):
         from .tx import Tx
-
         return Tx(self.chain, id=self.t_id)
 
-    @property
+    @lazy_property
     def spent_vector(self):
-        return self.chain.Iv[self.id, :]
+        return self.chain.IT[self.id, :]
 
-    @property
+    @lazy_property
     def spent(self):
-        return Transaction(self.chain, id=self.spent_vector.to_lists()[0][0])
+        from .tx import Tx
+        if self.spent_vector:
+            return Tx(self.chain, id=self.spent_vector.to_lists()[0][0])
 
     def __repr__(self):
-        return f"<Spend {self.id}>"
+        return f"<Spend: {self.address} value: {btc(self.value)}>"
