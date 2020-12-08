@@ -1,7 +1,22 @@
 from time import time
 
-from coinblas.util import query, curse, get_block_number, maximal_vector, Vector
-from pygraphblas import lib, unaryop, monoid, semiring, UINT64, Accum, binaryop
+from coinblas.util import (
+    query,
+    curse,
+    get_block_number,
+    maximal_vector,
+    Vector,
+)
+
+from pygraphblas import (
+    lib,
+    unaryop,
+    monoid,
+    semiring,
+    UINT64,
+    Accum,
+    binaryop,
+)
 
 
 class Address:
@@ -21,6 +36,7 @@ class Address:
     @curse
     def spends(self, curs):
         from .spend import Spend
+
         for i in self.spend_ids():
             yield Spend(self.chain, i, self.chain.IT[i, :].reduce_int())
 
@@ -34,7 +50,7 @@ class Address:
     @curse
     def flow(self, curs, end, debug=False):
         from .spend import Exposure
-        
+
         if isinstance(end, str):
             end = Address(self.chain, end)
 
@@ -44,7 +60,7 @@ class Address:
 
         start_v = self.id_vector(assign=lib.GxB_INDEX_MAX)
         end_v = end.id_vector(assign=0)
-        
+
         end_nvals = end_v.nvals
         found = 0
 
@@ -69,8 +85,7 @@ class Address:
             print(f"{end_v.nvals} occurences of {end.address}")
 
         IO = self.chain.IO.extract_matrix(
-            slice(start_min, end_max),
-            slice(start_min, end_max)
+            slice(start_min, end_max), slice(start_min, end_max)
         )
 
         if debug:
@@ -96,9 +111,11 @@ class Address:
             z_send = z_start[z_end.pattern()]
             if debug:
                 if z_send.nvals > found:
-                    print(f"After {level} rounds searched {z_start.nvals} "
-                          f"addresses found {found+1} of {end_nvals} "
-                          f"after {time()-tic:.4f} seconds")
+                    print(
+                        f"After {level} rounds searched {z_start.nvals} "
+                        f"addresses found {found+1} of {end_nvals} "
+                        f"after {time()-tic:.4f} seconds"
+                    )
                     found = z_send.nvals
             if z_send.nvals == end_nvals and w.iseq(z_send):
                 break

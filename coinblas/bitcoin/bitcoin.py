@@ -1,4 +1,3 @@
-
 import sys
 from time import time
 from pathlib import Path
@@ -15,7 +14,7 @@ from pygraphblas import (
     monoid,
     semiring,
     unaryop,
-    )
+)
 
 from coinblas.util import (
     btc,
@@ -26,7 +25,7 @@ from coinblas.util import (
     query,
     get_block_number,
     lazy_property,
-    )
+)
 
 from .block import Block
 from .tx import Tx
@@ -37,7 +36,6 @@ POOL_SIZE = 8
 
 
 class Bitcoin:
-
     def __init__(self, dsn, block_path, start, stop):
         self.chain = self
         self.dsn = dsn
@@ -49,19 +47,19 @@ class Bitcoin:
     @lazy_property
     def BT(self):
         return self.merge_all_blocks(self.blocks.copy(), "BT")
-    
+
     @lazy_property
     def TB(self):
         return self.merge_all_blocks(self.blocks.copy(), "TB")
-    
+
     @lazy_property
     def IT(self):
         return self.merge_all_blocks(self.blocks.copy(), "IT")
-    
+
     @lazy_property
     def TO(self):
         return self.merge_all_blocks(self.blocks.copy(), "TO")
-        
+
     @lazy_property
     def IO(self):
         with semiring.PLUS_MIN:
@@ -76,7 +74,7 @@ class Bitcoin:
     @query
     def date_block_range(self, curs):
         """
-            SELECT b_hash, b_number FROM bitcoin.block WHERE b_timestamp <@ tstzrange(%s, %s)
+        SELECT b_hash, b_number FROM bitcoin.block WHERE b_timestamp <@ tstzrange(%s, %s)
         """
         return curs.fetchall()
 
@@ -84,7 +82,7 @@ class Bitcoin:
     @query
     def block_range(self, curs):
         """
-            SELECT b_hash, b_number FROM bitcoin.block WHERE b_number <@ int4range(%s, %s)
+        SELECT b_hash, b_number FROM bitcoin.block WHERE b_number <@ int4range(%s, %s)
         """
         return curs.fetchall()
 
@@ -128,10 +126,10 @@ class Bitcoin:
     @query
     def tx_hash(self, curs):
         """
-            SELECT t_id FROM bitcoin.tx WHERE t_hash = %s
+        SELECT t_id FROM bitcoin.tx WHERE t_hash = %s
         """
         return Tx(self, curs.fetchone()[0])
-    
+
     def address(self, address):
         return Address(self, address)
 
@@ -157,10 +155,9 @@ class Bitcoin:
         print(f"Tx to Outputs: {self.TO.nvals} values.")
         print(f"Inputs to Outputs: {self.IO.nvals} values.")
         print(f"Tx to Tx: {self.TT.nvals} values.")
-        
+
         print(f"Blocks span {min_tx.block_number} to {max_tx.block_number}")
         print(f"Earliest Transaction: {min_tx.hash}")
         print(f"Latest Transaction: {max_tx.hash}")
         print(f"Blocks time span {min_time} to {max_time}")
         print(f"Total value intput {btc(in_val)} output {btc(out_val)}")
-

@@ -1,9 +1,15 @@
-from coinblas.util import query, curse, get_block_number, get_block_id, btc, lazy_property
+from coinblas.util import (
+    query,
+    curse,
+    get_block_number,
+    get_block_id,
+    btc,
+    lazy_property,
+)
 from .spend import Spend
 
 
 class Tx:
-
     def __init__(self, chain, id):
         self.chain = chain
         self.id = id
@@ -28,6 +34,7 @@ class Tx:
     @lazy_property
     def block(self):
         from .block import Block
+
         return Block(self.chain, self.block_number)
 
     @lazy_property
@@ -62,9 +69,9 @@ class Tx:
             print("  Inputs")
             for i in inputs:
                 if i.address is None:
-                    print(f'Unknown input {i.id}')
+                    print(f"Unknown input {i.id}")
                     continue
-                print('    ', i)
+                print("    ", i)
                 if i.spent_vector:
                     print(f"        from {i.tx.hash} in block {i.tx.block_number}")
                 else:
@@ -72,9 +79,9 @@ class Tx:
         print("  Outputs")
         for o in outputs:
             if o.address is None:
-                print(f'Unknown output {i.id}')
+                print(f"Unknown output {i.id}")
                 continue
-            print('    ', o)
+            print("    ", o)
             if o.spent_vector:
                 print(f"        to {o.spent.hash} in block {o.spent.block_number}")
             else:

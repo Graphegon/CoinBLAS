@@ -68,11 +68,11 @@ class Blockchain:
                 )
                 months = [x[0] for x in curs.fetchall()]
         pool = Pool(POOL_SIZE)
-        #result = list(map(self.load_graph_month, months))
+        # result = list(map(self.load_graph_month, months))
         result = list(pool.map(self.load_graph_month, months, 1))
         return result
 
-    #@retry(stop=stop_after_attempt(3))
+    # @retry(stop=stop_after_attempt(3))
     def load_graph_month(self, month, path="database-blocks"):
         tic = time()
         client = bigquery.Client()
@@ -183,21 +183,21 @@ class Blockchain:
         b.mkdir(parents=True, exist_ok=True)
         print(f"Writing {BT.nvals} BT vals for {bn}.")
         BTf = b / Path(f"{bn}_{t.b_hash}_BT.ssb")
-        
+
         print(f"Writing {TB.nvals} TB vals for {bn}.")
         TBf = b / Path(f"{bn}_{t.b_hash}_TB.ssb")
-        
+
         print(f"Writing {IT.nvals} IT vals for {bn}.")
         ITf = b / Path(f"{bn}_{t.b_hash}_IT.ssb")
-        
+
         print(f"Writing {TO.nvals} TO vals for {bn}.")
         TOf = b / Path(f"{bn}_{t.b_hash}_TO.ssb")
-        
+
         BT.to_binfile(bytes(BTf))
         TB.to_binfile(bytes(TBf))
         IT.to_binfile(bytes(ITf))
         TO.to_binfile(bytes(TOf))
-        
+
         print(f"matrix block {bn} write took {time()-tic:.4f}")
 
 

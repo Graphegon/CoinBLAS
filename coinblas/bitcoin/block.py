@@ -2,7 +2,6 @@ from coinblas.util import query, curse, get_block_number, lazy_property
 
 
 class Block:
-
     def __init__(self, chain, number):
         self.chain = chain
         self.number = number
@@ -23,10 +22,11 @@ class Block:
 
     @lazy_property
     def tx_vector(self):
-        return self.chain.BT[self.id,:]
+        return self.chain.BT[self.id, :]
 
     def __iter__(self):
         from .tx import Tx
+
         for t_id, _ in self.tx_vector:
             yield Tx(self.chain, id=t_id)
 
