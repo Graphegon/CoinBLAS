@@ -1,21 +1,21 @@
 from time import time
 
 from coinblas.util import (
-    query,
     curse,
     get_block_number,
     maximal_vector,
-    Vector,
+    query,
 )
 
 from pygraphblas import (
+    Accum,
+    UINT64,
+    Vector,
+    binaryop,
     lib,
-    unaryop,
     monoid,
     semiring,
-    UINT64,
-    Accum,
-    binaryop,
+    unaryop,
 )
 
 

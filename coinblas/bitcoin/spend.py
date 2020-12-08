@@ -1,4 +1,11 @@
-from coinblas.util import query, curse, get_tx_id, get_block_id, lazy_property, btc
+from coinblas.util import (
+    btc,
+    curse,
+    get_block_id,
+    get_tx_id,
+    lazy_property,
+    query,
+    )
 
 
 class Spend:

@@ -1,4 +1,9 @@
-from coinblas.util import query, curse, get_block_number, lazy_property
+from coinblas.util import (
+    curse,
+    get_block_number,
+    lazy_property,
+    query,
+    )
 
 
 class Block:

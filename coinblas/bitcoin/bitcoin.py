@@ -1,16 +1,10 @@
-import sys
-from time import time
 from pathlib import Path
 from multiprocessing.pool import ThreadPool
-from itertools import zip_longest, repeat
+from itertools import repeat
 
 import psycopg2 as pg
 from pygraphblas import (
     Matrix,
-    UINT64,
-    BOOL,
-    Vector,
-    binaryop,
     monoid,
     semiring,
     unaryop,
@@ -20,10 +14,7 @@ from coinblas.util import (
     btc,
     curse,
     grouper,
-    maximal_matrix,
-    maximal_vector,
     query,
-    get_block_number,
     lazy_property,
 )
 
