@@ -151,4 +151,4 @@ class Bitcoin:
         print(f"Earliest Transaction: {min_tx.hash}")
         print(f"Latest Transaction: {max_tx.hash}")
         print(f"Blocks time span {min_time} to {max_time}")
-        print(f"Total value intput {btc(in_val)} output {btc(out_val)}")
+        print(f"Total value input {btc(in_val)} output {btc(out_val)}")
