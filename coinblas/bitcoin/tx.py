@@ -1,10 +1,10 @@
 from coinblas.util import (
-    query,
-    curse,
-    get_block_number,
-    get_block_id,
     btc,
+    curse,
+    get_block_id,
+    get_block_number,
     lazy_property,
+    query,
 )
 from .spend import Spend
 
