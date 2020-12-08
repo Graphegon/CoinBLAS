@@ -48,7 +48,7 @@ class Address:
         return v
 
     @curse
-    def flow(self, curs, end, debug=False):
+    def exposure(self, curs, end, debug=False):
         from .spend import Exposure
 
         if isinstance(end, str):
