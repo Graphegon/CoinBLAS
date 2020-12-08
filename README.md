@@ -27,7 +27,7 @@ It's now relatively cheap to get hardware with ~1TB of RAM.  Both
 Google and AWS provide several different large-memory virtual machines
 with up to dozens of TB of RAM with the ability to connect multiple
 GPUs as well, offering hundreds of GB of on-GPU RAM for graph
-analytical processing.
+analytical processing using SuiteSparse:GraphBLAS.
 
 This opens the door for real-time, full-flow graph analysis over
 cryptocurrency graphs.  Consider that as of late 2020, the entire
@@ -39,4 +39,13 @@ RAM to store.
 
 Coinblas can do full-flow exposure analysis in real-time by storing
 the entire blockchain in memory using the GraphBLAS's highly
-space-efficient sparse matrix data formats.
+space-efficient sparse matrix data formats.  Whole block-chain
+analysis requires at least 512GB of ram and about $500 worth of
+BigQuery spend to do a full parallel load.
+
+# Four Incidence Matrices
+
+The core of CoinBLAS are four incidence matrices:
+
+![Input Output Adjacency projection](./docs/IOProjection.png)
+
