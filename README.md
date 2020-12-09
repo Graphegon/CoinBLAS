@@ -1,46 +1,47 @@
 # CoinBLAS
 
-# GraphBLAS all the Bitcoin
+![Logo](./docs/Logo.png)
+
+# GraphBLAS analysis of Bitcoin
 
 CoinBLAS is a Graph Linear Algebra analysis platform for bitcoin that
 uses the GraphBLAS graph API via pygraphblas.
 
-If you have enough RAM, BigQuery money, cores and time you can load
+If you have enough RAM, BigQuery budget, cores and time you can load
 all of bitcoin history into in-memory graphs.
 
-# Full-flow Analysis
+# Why CoinBLAS?
 
-All blockchains form a totally-ordered imutable transaction graph.
-Value flows from party to party, block by block, forward in time,
-branching and merging from destination addresses via transactions.
-coinblas replicates this graph exactly in memory using GraphBLAS
-matrices.
-
-![Two incidence matrices encode a bitcoin graph](./docs/Incidence.png)
-
-
-Transactions can be multi-sender and multi-receiver.
+![The Distributed Graph Database Problem](./docs/DBProblem.png)
 
 # The entire blockchain in RAM
 
-Coinblas can do full-flow exposure analysis in real-time by storing
-the entire blockchain in memory using the GraphBLAS's highly
-space-efficient sparse matrix data formats.  Whole block-chain
-analysis requires at least 512GB of ram and about $500 worth of
-BigQuery spend to do a full parallel load.
+![The entire blockchain in RAM](./docs/RAM.png)
+
+# Adjacency
+
+![Graph Adjacency Matrix](./docs/Adjacency.png)
 
 # Incidence Matrices and Projections
 
-CoinBLAS stores graph data as Incidence Matrices that get multiplied
-to project different adjacencies in the graph.
+![Projecting Adjacency from Incidence Matrices](./docs/Projection.png)
 
-## Block Transaction Projections
+## Blocktime IDs
 
-![Input Output Adjacency projection](./docs/IOProjection.png)
+![Input Output Adjacency projection](./docs/Blocktime.png)
 
-## Spend Transaction Projections
+## Block Transaction Incidence Flow
 
-![Input Output Adjacency projection](./docs/IOProjection.png)
+![Block Incidence Flow](./docs/BlockFlow.png)
+
+## Multi-party Incidence Flow
+
+![Multi-party Incidence Flow](./docs/ExposureFlow.png)
+
+## Exposure Reduction
+
+![Exposure Reduction](./docs/ExposureFlow.png)
+
 
 # The Gigabyte Epoch is Over
 
