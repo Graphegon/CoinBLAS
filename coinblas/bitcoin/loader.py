@@ -127,7 +127,6 @@ class Blockchain:
 
     def build_block_graph(self, curs, group, bn, path):
         BT = maximal_matrix(UINT64)
-        TB = maximal_matrix(UINT64)
         IT = maximal_matrix(UINT64)
         TO = maximal_matrix(UINT64)
 
@@ -161,7 +160,6 @@ class Blockchain:
                 i_value = t.i_value
                 i_id = spent_tid + t.i_spent_index
                 IT[i_id, t_id] = i_value
-                TB[spent_tid, b_id] = TB.get(spent_tid, b_id, 0) + i_value
                 inputs.add(t.i_index)
 
             if t.o_index not in outputs:
@@ -184,9 +182,6 @@ class Blockchain:
         print(f"Writing {BT.nvals} BT vals for {bn}.")
         BTf = b / Path(f"{bn}_{t.b_hash}_BT.ssb")
 
-        print(f"Writing {TB.nvals} TB vals for {bn}.")
-        TBf = b / Path(f"{bn}_{t.b_hash}_TB.ssb")
-
         print(f"Writing {IT.nvals} IT vals for {bn}.")
         ITf = b / Path(f"{bn}_{t.b_hash}_IT.ssb")
 
@@ -194,7 +189,6 @@ class Blockchain:
         TOf = b / Path(f"{bn}_{t.b_hash}_TO.ssb")
 
         BT.to_binfile(bytes(BTf))
-        TB.to_binfile(bytes(TBf))
         IT.to_binfile(bytes(ITf))
         TO.to_binfile(bytes(TOf))
 

@@ -40,10 +40,6 @@ class Bitcoin:
         return self.merge_all_blocks(self.blocks.copy(), "BT")
 
     @lazy_property
-    def TB(self):
-        return self.merge_all_blocks(self.blocks.copy(), "TB")
-
-    @lazy_property
     def IT(self):
         return self.merge_all_blocks(self.blocks.copy(), "IT")
 
@@ -140,7 +136,6 @@ class Bitcoin:
         in_val = self.IT.reduce_int()
         out_val = self.TO.reduce_int()
 
-        print(f"Txs to Blocks: {self.TB.nvals} values.")
         print(f"Blocks to Txs: {self.BT.nvals} values.")
         print(f"Inputs to Tx: {self.IT.nvals} values.")
         print(f"Tx to Outputs: {self.TO.nvals} values.")
