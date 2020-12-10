@@ -35,7 +35,7 @@ into in-memory graphs.
 
 ## Exposure Reduction
 
-![Exposure Reduction](./docs/ExposureFlow.png)
+![Exposure Reduction](./docs/Reduction.png)
 
 
 # The Gigabyte Epoch is Over
