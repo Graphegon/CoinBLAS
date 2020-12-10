@@ -5,10 +5,6 @@ uses the GraphBLAS graph API via pygraphblas. If you have enough RAM,
 BigQuery budget, cores and time you can load all of bitcoin history
 into in-memory graphs.
 
-# Why CoinBLAS?
-
-![The Distributed Graph Database Problem](./docs/DBProblem.png)
-
 # The entire blockchain in RAM
 
 ![The entire blockchain in RAM](./docs/RAM.png)
@@ -36,7 +32,6 @@ into in-memory graphs.
 ## Exposure Reduction
 
 ![Exposure Reduction](./docs/Reduction.png)
-
 
 # The Gigabyte Epoch is Over
 
