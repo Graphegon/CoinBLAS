@@ -2,3 +2,4 @@ google-cloud-bigquery
 psycopg2-binary
 tenacity
 jupyter
+lazy-property

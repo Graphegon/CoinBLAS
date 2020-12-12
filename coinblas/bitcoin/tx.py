@@ -1,20 +1,25 @@
+from lazy_property import LazyWritableProperty as lazy
+
 from coinblas.util import (
     btc,
     curse,
     get_block_id,
     get_block_number,
-    lazy_property,
     query,
 )
 from .spend import Spend
 
 
 class Tx:
-    def __init__(self, chain, id):
+    def __init__(self, chain, id, hash=None, block=None):
         self.chain = chain
         self.id = id
+        if hash is not None:
+            self.hash = hash
+        if block is not None:
+            self.block = block
 
-    @lazy_property
+    @lazy
     @curse
     @query
     def hash(self, curs):
@@ -23,25 +28,25 @@ class Tx:
         """
         return curs.fetchone()[0]
 
-    @lazy_property
+    @lazy
     def block_number(self):
         return get_block_number(self.id)
 
-    @lazy_property
+    @lazy
     def block_id(self):
         return get_block_id(self.id)
 
-    @lazy_property
+    @lazy
     def block(self):
         from .block import Block
 
         return Block(self.chain, self.block_number)
 
-    @lazy_property
+    @lazy
     def input_vector(self):
         return self.chain.IT[:, self.id]
 
-    @lazy_property
+    @lazy
     def output_vector(self):
         return self.chain.TO[self.id, :]
 
@@ -54,6 +59,15 @@ class Tx:
     def outputs(self):
         for i, v in self.output_vector:
             yield Spend(self.chain, i, v)
+
+    def add_output(self, spend):
+        self.block.TO[self.id, spend.id] = spend.value
+
+        old = self.block.BT.get(self.block.id, self.id, 0)
+        self.block.BT[self.block.id, self.id] = old + spend.value
+
+    def add_input(self, spend):
+        self.block.IT[spend.id, self.id] = spend.value
 
     @curse
     def summary(self, curs):

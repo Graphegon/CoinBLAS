@@ -74,7 +74,7 @@ class Address:
             return
 
         IO = self.chain.IO
-        
+
         end_max = end.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MAX_MONOID)
         start_min = start.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MIN_MONOID)
 

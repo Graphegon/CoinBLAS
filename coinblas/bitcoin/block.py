@@ -1,22 +1,59 @@
+from pathlib import Path
+from lazy_property import LazyWritableProperty as lazy
+from psycopg2.extras import execute_values
+
+from pygraphblas import UINT64
+
 from coinblas.util import (
     curse,
     get_block_number,
-    lazy_property,
     query,
-    )
+    maximal_matrix,
+)
 
 
 class Block:
-    def __init__(self, chain, number):
+    def __init__(self, chain, number, hash=None):
         self.chain = chain
-        self.number = number
         self.id = number << 32
+        self.number = number
+        if hash is not None:
+            self.hash = hash
 
     @classmethod
     def from_id(cls, chain, id):
         return Block(chain, get_block_number(id))
 
-    @lazy_property
+    @lazy
+    def pending_txs(self):
+        return []
+
+    @lazy
+    def pending_addrs(self):
+        return []
+
+    @lazy
+    def BT(self):
+        return maximal_matrix(UINT64)
+
+    @lazy
+    def IT(self):
+        return maximal_matrix(UINT64)
+
+    @lazy
+    def TO(self):
+        return maximal_matrix(UINT64)
+
+    @lazy
+    @curse
+    @query
+    def hash(self, curs):
+        """
+        SELECT t_hash FROM bitcoin.tx WHERE t_id = {self.id}
+        """
+        return curs.fetchone()[0]
+
+    @lazy
     @curse
     @query
     def timestamp(self, curs):
@@ -25,9 +62,54 @@ class Block:
         """
         return curs.fetchone()[0]
 
-    @lazy_property
+    @lazy
     def tx_vector(self):
         return self.chain.BT[self.id, :]
+
+    @curse
+    @query
+    def insert(self, curs):
+        """
+        INSERT INTO bitcoin.block
+        (b_number, b_hash, b_timestamp, b_timestamp_month)
+        VALUES ({self.number}, %s, %s, %s)
+        """
+        execute_values(
+            curs,
+            """
+            INSERT INTO bitcoin.tx (t_hash, t_id) VALUES %s
+            """,
+            [(t.hash, t.id) for t in self.pending_txs],
+        )
+        execute_values(
+            curs,
+            """
+            INSERT INTO bitcoin.address (a_address, a_id) VALUES %s
+            """,
+            self.pending_addrs,
+        )
+
+    def add(self, tx):
+        self.pending_txs.append(tx)
+
+    def add_address(self, address, a_id):
+        self.pending_addrs.append((address, a_id))
+
+    def write_block_files(self, path):
+        b = Path(path) / Path(self.hash[-2]) / Path(self.hash[-1])
+        b.mkdir(parents=True, exist_ok=True)
+        print(f"Writing {self.BT.nvals} BT vals for {self.number}.")
+        BTf = b / Path(f"{self.number}_{self.hash}_BT.ssb")
+
+        print(f"Writing {self.IT.nvals} IT vals for {self.number}.")
+        ITf = b / Path(f"{self.number}_{self.hash}_IT.ssb")
+
+        print(f"Writing {self.TO.nvals} TO vals for {self.number}.")
+        TOf = b / Path(f"{self.number}_{self.hash}_TO.ssb")
+
+        self.BT.to_binfile(bytes(BTf))
+        self.IT.to_binfile(bytes(ITf))
+        self.TO.to_binfile(bytes(TOf))
 
     def __iter__(self):
         from .tx import Tx

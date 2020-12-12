@@ -1,11 +1,12 @@
+from lazy_property import LazyWritableProperty as lazy
+
 from coinblas.util import (
     btc,
     curse,
     get_block_id,
     get_tx_id,
-    lazy_property,
     query,
-    )
+)
 
 
 class Spend:
@@ -15,11 +16,11 @@ class Spend:
         self.t_id = get_tx_id(self.id)
         self.value = value
 
-    @lazy_property
+    @lazy
     def coinbase(self):
         return self.id == get_block_id(self.id)
 
-    @lazy_property
+    @lazy
     @curse
     @query
     def address(self, curs):
@@ -33,17 +34,17 @@ class Spend:
             return
         return Address(self.chain, r[0])
 
-    @lazy_property
+    @lazy
     def tx(self):
         from .tx import Tx
 
         return Tx(self.chain, id=self.t_id)
 
-    @lazy_property
+    @lazy
     def spent_vector(self):
         return self.chain.IT[self.id, :]
 
-    @lazy_property
+    @lazy
     def spent(self):
         from .tx import Tx
 
