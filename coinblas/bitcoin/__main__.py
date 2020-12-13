@@ -1,14 +1,29 @@
-import sys
+import os
 
 if __name__ == "__main__":
-    from . import Bitcoin
+    import argparse
 
-    g = Bitcoin(
-        "host=db dbname=coinblas user=postgres password=postgres",
-        "/home/jovyan/coinblas/database-blocks",
-        sys.argv[-3],
-        sys.argv[-2],
-        int(sys.argv[-1]),
+    parser = argparse.ArgumentParser(description="CoinBLAS")
+    parser.add_argument("mode", default="query", help="query|init")
+    parser.add_argument("--start", help="Start block number")
+    parser.add_argument("--end", help="End block number")
+    parser.add_argument("--start-date", help="Start block number")
+    parser.add_argument("--end-date", help="End block number")
+    parser.add_argument("--pool-size", default="1", type=int, help="Pool Size")
+    parser.add_argument("--db", default=os.getenv("COINBLAS_DB"), help="Postgres DB")
+    parser.add_argument(
+        "--block-path", default=os.getenv("COINBLAS_PATH"), help="Block file Path"
     )
+    args = parser.parse_args()
 
-    g.load_graph(sys.argv[-3], sys.argv[-2])
+    from coinblas.bitcoin import Bitcoin
+
+    g = Bitcoin(args.db, args.block_path, args.pool_size)
+    if args.mode == "init":
+        g.initialize_blocks()
+        g.import_blocktime(args.start, args.end)
+    else:
+        if args.start and args.end:
+            g.load_blockspan(args.start, args.end)
+        elif args.start_date and args.end_date:
+            g.load_blocktime(args.start_date, args.end_date)

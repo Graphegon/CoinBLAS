@@ -16,6 +16,8 @@ services:
     volumes:
       - .:/home/jovyan/coinblas
     environment:
+      COINBLAS_DB: "host=db dbname=coinblas user=postgres password=postgres"
+      COINBLAS_PATH: /home/jovyan/coinblas/database-blocks
       GOOGLE_APPLICATION_CREDENTIALS: /home/jovyan/coinblas/pgsodium-e46130a430c2.json
   notebook:
     build: .

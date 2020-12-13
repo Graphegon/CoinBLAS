@@ -34,12 +34,15 @@ POOL_SIZE = 8
 
 
 class Bitcoin:
-    def __init__(self, dsn, block_path, start, stop, POOL_SIZE=POOL_SIZE):
+    def __init__(self, dsn, block_path, pool_size=POOL_SIZE):
         self.chain = self
         self.dsn = dsn
         self.block_path = Path(block_path)
-        self.POOL_SIZE = POOL_SIZE
-        self.blocks = self.date_block_range(start, stop)
+        self.pool_size = pool_size
+
+    @lazy
+    def blocks(self):
+        return []
 
     @lazy
     def conn(self):
@@ -47,15 +50,15 @@ class Bitcoin:
 
     @lazy
     def BT(self):
-        return self.merge_all_blocks(self.blocks.copy(), "BT")
+        return self.merge_all_blocks("BT")
 
     @lazy
     def IT(self):
-        return self.merge_all_blocks(self.blocks.copy(), "IT")
+        return self.merge_all_blocks("IT")
 
     @lazy
     def TO(self):
-        return self.merge_all_blocks(self.blocks.copy(), "TO")
+        return self.merge_all_blocks("TO")
 
     @lazy
     def IO(self):
@@ -67,7 +70,47 @@ class Bitcoin:
         with semiring.PLUS_PLUS:
             return self.IT.T @ self.TO.T
 
-    def load_graph(self, start=None, end=None):
+    def initialize_blocks(self):
+        tic = time()
+        client = bigquery.Client()
+        query = """
+        SELECT number, `hash`, timestamp, timestamp_month 
+        FROM `bigquery-public-data.crypto_bitcoin.blocks`
+        ORDER BY number;
+        """
+        print(f"Calling BigQuery")
+        bq_blocks = list(client.query(query))
+        print(f"Initializing {len(bq_blocks)} blocks.")
+        with pg.connect(self.dsn) as conn:
+            with conn.cursor() as curs:
+                execute_values(
+                    curs,
+                    """
+        INSERT INTO bitcoin.block 
+            (b_number, b_hash, b_timestamp, b_timestamp_month)
+        VALUES %s
+                    """,
+                    bq_blocks,
+                )
+            conn.commit()
+
+    @curse
+    @query
+    def load_blocktime(self, curs):
+        """
+        SELECT b_number, b_hash FROM bitcoin.imported_block WHERE b_timestamp <@ tstzrange(%s, %s)
+        """
+        self.blocks = [Block(self, b[0], b[1]) for b in curs.fetchall()]
+
+    @curse
+    @query
+    def load_blockspan(self, curs):
+        """
+        SELECT b_number, b_hash FROM bitcoin.imported_block WHERE b_number <@ int4range(%s, %s)
+        """
+        self.blocks = [Block(self, b[0], b[1]) for b in curs.fetchall()]
+
+    def import_blocktime(self, start, end):
         with pg.connect(self.dsn) as conn:
             with conn.cursor() as curs:
                 curs.execute(
@@ -77,16 +120,16 @@ class Bitcoin:
                     (start, end),
                 )
                 months = [x[0] for x in curs.fetchall()]
-        if self.POOL_SIZE == 1:
-            result = list(map(self.load_graph_month, months))
+        if self.pool_size == 1:
+            result = list(map(self.import_graph_month, months))
         else:
             pool = Pool(self.POOL_SIZE)
-            result = list(pool.map(self.load_graph_month, months, 1))
+            result = list(pool.map(self.import_graph_month, months, 1))
 
         return result
 
     # @retry(stop=stop_after_attempt(3))
-    def load_graph_month(self, month, path="database-blocks"):
+    def import_graph_month(self, month):
         tic = time()
         client = bigquery.Client()
 
@@ -127,16 +170,21 @@ class Bitcoin:
             for bn, group in groupby(client.query(query), lambda r: r["b_number"]):
                 with conn.cursor() as curs:
                     curs.execute(
-                        "select exists (select 1 from bitcoin.block where b_number = %s)",
+                        """
+                        SELECT EXISTS (
+                        SELECT b_imported_at
+                        FROM bitcoin.block 
+                        WHERE b_imported_at IS NOT null AND b_number = %s)
+                        """,
                         (bn,),
                     )
                     if curs.fetchone()[0]:
                         print(f"Block {bn} already done.")
                         continue
-                    self.build_block_graph(curs, group, bn, path)
+                    self.build_block_graph(curs, group, bn)
             print(f"Took {(time() - tic)/60.0} minutes for {month}")
 
-    def build_block_graph(self, curs, group, bn, path):
+    def build_block_graph(self, curs, group, bn):
 
         inputs = set()
         outputs = set()
@@ -153,7 +201,7 @@ class Bitcoin:
                 inputs.clear()
                 outputs.clear()
                 tx = Tx(self, t.t_id, t.t_hash, block)
-                block.add(tx)
+                block.add_tx(tx)
 
             t_hash = t.t_hash
 
@@ -175,34 +223,24 @@ class Bitcoin:
 
         print(f"Took {time()-tic:.4f} to parse block {block.number}.")
         tic = time()
-        block.insert(t.b_hash, t.b_timestamp, t.b_timestamp_month)
-        block.write_block_files(path)
+        block.finalize()
         self.conn.commit()
         print(f"matrix block {block.number} write took {time()-tic:.4f}")
 
-    @curse
-    @query
-    def date_block_range(self, curs):
-        """
-        SELECT b_hash, b_number FROM bitcoin.block WHERE b_timestamp <@ tstzrange(%s, %s)
-        """
-        return curs.fetchall()
+    def merge_all_blocks(self, suffix):
+        if self.pool_size == 1:
+            mapper = lambda f, s: list(map(f, s))
+        else:
+            thread_pool = ThreadPool(self.pool_size)
+            mapper = lambda f, s: thread_pool.map(f, s)
 
-    @curse
-    @query
-    def block_range(self, curs):
-        """
-        SELECT b_hash, b_number FROM bitcoin.block WHERE b_number <@ int4range(%s, %s)
-        """
-        return curs.fetchall()
-
-    def merge_all_blocks(self, blocks, suffix):
-        thread_pool = ThreadPool(POOL_SIZE)
-        blocks = list(grouper(zip(blocks, repeat(suffix)), 2, None))
-        while len(blocks) > 1:
-            blocks = list(
-                grouper(thread_pool.map(self.merge_block_pair, blocks), 2, None)
+        blocks = list(
+            grouper(
+                zip(((b.hash, b.number) for b in self.blocks), repeat(suffix)), 2, None
             )
+        )
+        while len(blocks) > 1:
+            blocks = list(grouper(mapper(self.merge_block_pair, blocks), 2, None))
         return self.merge_block_pair(blocks[0])
 
     def merge_block_pair(self, pair):

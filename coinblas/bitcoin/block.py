@@ -24,6 +24,12 @@ class Block:
     def from_id(cls, chain, id):
         return Block(chain, get_block_number(id))
 
+    @classmethod
+    def bq_insert(cls, chain, bq):
+        b = Block(chain, bq.number, bq.hash)
+        b.insert(bq)
+        return b
+
     @lazy
     def pending_txs(self):
         return []
@@ -49,7 +55,7 @@ class Block:
     @query
     def hash(self, curs):
         """
-        SELECT t_hash FROM bitcoin.tx WHERE t_id = {self.id}
+        SELECT b_hash FROM bitcoin.block WHERE b_number = {self.number}
         """
         return curs.fetchone()[0]
 
@@ -63,16 +69,36 @@ class Block:
         return curs.fetchone()[0]
 
     @lazy
+    @curse
+    @query
+    def timestamp(self, curs):
+        """
+        SELECT b_timestamp_month FROM bitcoin.block WHERE b_number  = {self.number}
+        """
+        return curs.fetchone()[0]
+
+    @lazy
     def tx_vector(self):
         return self.chain.BT[self.id, :]
 
     @curse
+    def insert(self, curs, bq):
+        curs.execute(
+            """
+        INSERT INTO bitcoin.block 
+            (b_number, b_hash, b_timestamp, b_timestamp_month)
+        VALUES 
+            (%s, %s, %s, %s)
+        """,
+            (self.number, self.hash, bq.timestamp, bq.timestamp_month),
+        )
+
+    @curse
     @query
-    def insert(self, curs):
+    def finalize(self, curs):
         """
-        INSERT INTO bitcoin.block
-        (b_number, b_hash, b_timestamp, b_timestamp_month)
-        VALUES ({self.number}, %s, %s, %s)
+        UPDATE bitcoin.block SET b_imported_at = now()
+        WHERE b_number = {self.number}
         """
         execute_values(
             curs,
@@ -88,8 +114,9 @@ class Block:
             """,
             self.pending_addrs,
         )
+        self.write_block_files(self.chain.block_path)
 
-    def add(self, tx):
+    def add_tx(self, tx):
         self.pending_txs.append(tx)
 
     def add_address(self, address, a_id):
@@ -118,4 +145,4 @@ class Block:
             yield Tx(self.chain, id=t_id)
 
     def __repr__(self):
-        return f"<Block number: {self.number} txs: {self.tx_vector.nvals}>"
+        return f"<Block number: {self.number}>"

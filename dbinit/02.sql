@@ -6,13 +6,19 @@ BEGIN;
 CREATE SCHEMA bitcoin;
 
 CREATE TABLE bitcoin.block(
-       b_number INTEGER PRIMARY KEY,
-       b_hash TEXT NOT NULL,
-       b_timestamp timestamptz NOT NULL,
-       b_timestamp_month date NOT NULL);
-       
+    b_number INTEGER PRIMARY KEY,
+    b_hash TEXT NOT NULL,
+    b_timestamp timestamptz NOT NULL,
+    b_timestamp_month date NOT NULL,
+	b_imported_at timestamptz
+	);
+
 CREATE INDEX ON bitcoin.block (b_hash);
 CREATE INDEX ON bitcoin.block (b_timestamp);
+CREATE index on bitcoin.block (b_imported_at);
+
+CREATE VIEW bitcoin.imported_block AS
+	SELECT * FROM bitcoin.block WHERE b_imported_at IS NOT null;
 
 CREATE TABLE bitcoin.tx(
        t_hash TEXT NOT NULL,

@@ -48,7 +48,9 @@ def query(f):
         conn = cursor.connection
         params = args[:arg_count]
         query = eval("""f'''""" + doc_query + """'''""", dict(self=self))
-        cursor.execute(query, params or None)
+        statements = query.split(";")
+        for s in statements:
+            cursor.execute(query, params or None)
         return f(self, cursor, *args[arg_count:], **kwargs)
 
     return wrapper
@@ -60,33 +62,3 @@ def curse(func):
             return func(self, curs, *args, **kwargs)
 
     return _decorator
-
-
-class lazy_property:
-    name = None
-
-    @staticmethod
-    def func(instance):
-        raise TypeError(
-            "Cannot use lazy_property instance without calling __set_name__() on it."
-        )
-
-    def __init__(self, func, name=None):
-        self.real_func = func
-        self.__doc__ = getattr(func, "__doc__")
-
-    def __set_name__(self, owner, name):
-        if self.name is None:
-            self.name = name
-            self.func = self.real_func
-        elif name != self.name:
-            raise TypeError(
-                "Cannot assign the same lazy_property to two different names "
-                "(%r and %r)." % (self.name, name)
-            )
-
-    def __get__(self, instance, cls=None):
-        if instance is None:
-            return self
-        res = instance.__dict__[self.name] = self.func(instance)
-        return res
