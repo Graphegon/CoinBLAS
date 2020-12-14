@@ -9,7 +9,6 @@ import psycopg2 as pg
 from psycopg2.extras import execute_values
 from tenacity import retry, stop_after_attempt
 from google.cloud import bigquery
-from lazy_property import LazyWritableProperty as lazy
 
 from pygraphblas import (
     Matrix,
@@ -25,11 +24,12 @@ from coinblas.util import (
     grouper,
     query,
     maximal_matrix,
+    lazy,
 )
 
 from .block import Block
 from .tx import Tx
-from .spend import Spend
+from .relation import Spend
 from .address import Address
 
 POOL_SIZE = 8

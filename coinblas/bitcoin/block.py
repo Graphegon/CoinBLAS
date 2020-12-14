@@ -1,5 +1,4 @@
 from pathlib import Path
-from lazy_property import LazyWritableProperty as lazy
 from psycopg2.extras import execute_values
 
 from pygraphblas import UINT64
@@ -9,6 +8,7 @@ from coinblas.util import (
     get_block_number,
     query,
     maximal_matrix,
+    lazy,
 )
 
 

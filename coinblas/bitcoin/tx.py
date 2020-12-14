@@ -1,4 +1,3 @@
-from lazy_property import LazyWritableProperty as lazy
 
 from coinblas.util import (
     btc,
@@ -6,8 +5,9 @@ from coinblas.util import (
     get_block_id,
     get_block_number,
     query,
+    lazy,
 )
-from .spend import Spend
+from .relation import Spend
 
 
 class Tx:

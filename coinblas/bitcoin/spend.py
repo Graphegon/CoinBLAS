@@ -1,4 +1,3 @@
-from lazy_property import LazyWritableProperty as lazy
 
 from coinblas.util import (
     btc,
@@ -6,10 +5,11 @@ from coinblas.util import (
     get_block_id,
     get_tx_id,
     query,
+    lazy,
 )
 
 
-class Spend:
+class Relation:
     def __init__(self, chain, id, value):
         self.chain = chain
         self.id = id
@@ -48,12 +48,19 @@ class Spend:
     def spent(self):
         from .tx import Tx
 
-        if self.spent_vector:
+        if self.spent_vpector:
             return Tx(self.chain, id=self.spent_vector.to_lists()[0][0])
 
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.address} value: {btc(self.value)}>"
 
 
-class Exposure(Spend):
+
+class Spend(Relation):
+    pass
+
+class Exposure(Relation):
+    pass
+
+class Parent(Relation):
     pass

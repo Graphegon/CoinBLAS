@@ -2,6 +2,7 @@ from itertools import zip_longest
 from functools import wraps
 from textwrap import dedent
 from pygraphblas import Matrix, Vector
+from lazy_property import LazyWritableProperty as lazy
 
 GxB_INDEX_MAX = 1 << 60
 

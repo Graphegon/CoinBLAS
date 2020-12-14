@@ -5,6 +5,7 @@ from coinblas.util import (
     get_block_number,
     maximal_vector,
     query,
+    lazy,
 )
 
 from pygraphblas import (
@@ -26,6 +27,7 @@ class Address:
         self.chain = chain
         self.address = address
 
+    @lazy
     @curse
     @query
     def spend_ids(self, curs):
@@ -35,35 +37,32 @@ class Address:
         return [i[0] for i in curs.fetchall()]
 
     @property
-    @curse
-    def spends(self, curs):
-        from .spend import Spend
+    def spends(self):
+        from .relation import Spend
 
-        for i in self.spend_ids():
+        for i in self.spend_ids:
             yield Spend(self.chain, i, self.chain.IT[i, :].reduce_int())
 
-    @curse
-    def id_vector(self, curs, T=UINT64, assign=0):
+    def id_vector(self, assign=0, T=UINT64):
         v = maximal_vector(T)
-        for a_id in self.spend_ids():
+        for a_id in self.spend_ids:
             v[a_id] = assign
         return v
 
-    def bfs(self, depth=lib.GxB_INDEX_MAX):
-        v = self.id_vector(UINT64, 0)
-        q = self.id_vector(BOOL, True)
+    def bfs_parent(self, depth=lib.GxB_INDEX_MAX, sring=semiring.ANY_SECONDI1_INT64):
         IO = self.chain.IO
+        q = self.id_vector(0).apply(unaryop.POSITIONI1_INT64)
+        pi = q.dup()
         for level in range(min(depth, IO.nvals)):
-            v.assign_scalar(level, mask=q, desc=descriptor.S)
+            q.vxm(IO, out=q, mask=pi, semiring=sring, desc=descriptor.RC)
             if not q:
                 break
-            with BOOL.ANY_PAIR:
-                q = q.vxm(IO, mask=v, desc=descriptor.RC)
-        return v
+            pi.assign(q, mask=q, desc=descriptor.S)
+        return pi
 
     @curse
     def exposure(self, curs, end_addr, max_iters=lib.GxB_INDEX_MAX):
-        from .spend import Exposure
+        from .relation import Exposure
         from .bitcoin import logger
 
         if isinstance(end_addr, str):
@@ -72,17 +71,17 @@ class Address:
         logger.debug(f"Tracing {self.address} to {end_addr.address}")
         tic = time()
 
-        start = self.id_vector(assign=lib.GxB_INDEX_MAX)
-        end = end_addr.id_vector(assign=0)
+        start = self.id_vector(lib.GxB_INDEX_MAX)
+        end = end_addr.id_vector(0)
 
         end_nvals = end.nvals
         found = 0
 
         if not len(start):
-            logger.debug("No starting address spends.")
+            logger.warning("No starting address spends.")
             return
         if not len(end):
-            logger.debug("No ending address spends.")
+            logger.warning("No ending address spends.")
             return
 
         IO = self.chain.IO
@@ -91,7 +90,7 @@ class Address:
         start_min = start.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MIN_MONOID)
 
         if end_max < start_min:
-            logger.debug(
+            logger.warning(
                 f"No {self.address} spends found before any {end_addr.address}"
             )
             return
