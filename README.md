@@ -12,7 +12,7 @@ do full-graph, full-flow analysis using the GraphBLAS API.
 Loading the full blockchain graph takes up to 512GB of memory and $500
 worth of BigQuery cost, so that's probably out of most people's
 budgets.  Thankfully, CoinBLAS can load a month's worth of graph data
-at ta time, costing only a few dollars per month.  Current memory
+at a time, costing only a few dollars per data-month.  Current memory
 requirements to load all of November 2020 is 16GB of RAM, easily done
 on relatively modest laptop hardware.
 
@@ -20,6 +20,26 @@ Once you've loaded the data, CoinBLAS stores the graphs as SuiteSparse
 binary files.  At the moment there are 3 files per block, so a full
 graph load will save 1.5M files.  The directory layout is partitioned
 256 ways on last two hex characters of the block's hash.
+
+# Usage
+
+There are three modes of the program, initializing, importing, and
+querying.
+
+Initializing downloads all the block meta information from BigQuery
+and stores it in a local PostgreSQL database.  This will cost a few
+dollars.
+
+After initialization, you can choose the month or block ranges you
+want to import from BigQuery.  This is a highly variable cost from a
+few dollars for a single month to >$500 to import the whole chain.
+
+Once initialized and imported, the graphs can be loaded into RAM and
+queried through the Python API.  The PostgreSQL schema also provides a
+simple SQL interface to the metadata for mapping numeric ids to
+addresses and hashes.
+
+# Intro
 
 The next couple of sections serve as an introduction to Graph
 algorithms with Linear Algebra that are used by CoinBLAS.  The core
