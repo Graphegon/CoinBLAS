@@ -7,7 +7,7 @@ Python binding. If you have enough RAM, Google BigQuery budget, cores
 and time you can load all of bitcoin history into in-memory graphs and
 do full-graph, full-flow analysis using the GraphBLAS API.
 
-# The entire blockchain in RAM
+![The entire blockchain in RAM](./docs/RAM.png)
 
 Loading the full blockchain graph takes up to 512GB of memory and $500
 worth of BigQuery cost, so that's probably out of most people's
@@ -16,22 +16,18 @@ at ta time, costing only a few dollars per month.  Current memory
 requirements to load all of November 2020 is 16GB of RAM, easily done
 on relatively modest laptop hardware.
 
-![The entire blockchain in RAM](./docs/RAM.png)
-
 Once you've loaded the data, CoinBLAS stores the graphs as SuiteSparse
 binary files.  At the moment there are 3 files per block, so a full
 graph load will save 1.5M files.  The directory layout is partitioned
 256 ways on last two hex characters of the block's hash.
 
-# Intro: Adjacency Matrices
+![Graph Adjacency Matrix](./docs/Adjacency.png)
 
 The next couple of sections serve as an introduction to Graph
 algorithms with Linear Algebra.  The core concept of the GraphBLAS is
 that dualism that a graph can construct a matrix, and a matrix can
 construct a graph.  This mathematical communion allows the power of
 Linear Algebra to be used to analyze and manipulate graphs.
-
-![Graph Adjacency Matrix](./docs/Adjacency.png)
 
 The core operation of graph algorithms is taking a "step" from a node
 to its neighbors.  Using Linear Algebra, this translates into common
@@ -40,7 +36,7 @@ Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
 Repeated multiplications traverse the graph in a [Breadth First
 Search](https://en.wikipedia.org/wiki/Breadth-first_search).
 
-# Hypergraphs with Incidence Matrices
+![Projecting Adjacency from Incidence Matrices](./docs/Incidence.png)
 
 Adjacency matrices however can only encode simple directed and
 undirected graphs between similar kinds of things.  The bitcoin graph
@@ -51,13 +47,9 @@ No worry, Linear Algebra's got you there, the concept of a
 constructed using two [Incidence
 Matrices](https://en.wikipedia.org/wiki/Incidence_matrix)
 
-![Projecting Adjacency from Incidence Matrices](./docs/Incidence.png)
-
-# Projecting Incidence to Adacency
-
 ![Projecting Adjacency from Incidence Matrices](./docs/Projection.png)
 
-# Blocktime IDs
+![Input Output Adjacency projection](./docs/Blocktime.png)
 
 The bitcoin blockchain is an immutable record of past transactions.
 This immutability confers onto it a *total order of blocks,
@@ -82,23 +74,15 @@ In a sense, this turns a GraphBLAS matrix into an [Associative
 Array](https://en.wikipedia.org/wiki/Associative_array) which was by
 design, of course.
 
-![Input Output Adjacency projection](./docs/Blocktime.png)
-
 Now, by encoding the block, transaction index, and output index into
 the index, CoinBLAS stores graphs in a linear fashion, new blocks are
 always appended onto the "end" of the matrix.  Each block is a 2**32
 "space" to fill with transactions and outputs, whose ids are always
 between the start of the current block and the start of the next.
 
-# Block Transaction Incidence Flow
-
 ![Block Incidence Flow](./docs/TxFlow.png)
 
-# Multi-party Incidence Flow
-
 ![Multi-party Incidence Flow](./docs/AdjacentFlow.png)
-
-# Exposure Reduction
 
 ![Exposure Reduction](./docs/Reduction.png)
 
