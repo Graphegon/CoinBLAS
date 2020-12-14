@@ -1,3 +1,4 @@
+
 ![Logo](./docs/Logo.png)
 
 CoinBLAS Community Edition is a Graph Linear Algebra analysis platform
@@ -26,9 +27,9 @@ graph load will save 1.5M files.  The directory layout is partitioned
 
 The next couple of sections serve as an introduction to Graph
 algorithms with Linear Algebra.  The core concept of the GraphBLAS is
-that a graph can be constructed with a matrix, and a matrix can
-construct a graph.  This mathematical dualism allows the power of
-Linear Algebra to be used to analyze and manipulate graphs.  
+that dualism that a graph can construct a matrix, and a matrix can
+construct a graph.  This mathematical communion allows the power of
+Linear Algebra to be used to analyze and manipulate graphs.
 
 ![Graph Adjacency Matrix](./docs/Adjacency.png)
 
@@ -50,7 +51,7 @@ No worry, Linear Algebra's got you there, the concept of a
 constructed using two [Incidence
 Matrices](https://en.wikipedia.org/wiki/Incidence_matrix)
 
-![Projecting Adjacency from Incidence Matrices](./docs/Projection.png)
+![Projecting Adjacency from Incidence Matrices](./docs/Incidence.png)
 
 # Projecting Incidence to Adacency
 
@@ -91,11 +92,11 @@ between the start of the current block and the start of the next.
 
 # Block Transaction Incidence Flow
 
-![Block Incidence Flow](./docs/BlockFlow.png)
+![Block Incidence Flow](./docs/TxFlow.png)
 
 # Multi-party Incidence Flow
 
-![Multi-party Incidence Flow](./docs/ExposureFlow.png)
+![Multi-party Incidence Flow](./docs/AdjacentFlow.png)
 
 # Exposure Reduction
 
