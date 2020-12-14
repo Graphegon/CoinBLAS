@@ -2,6 +2,8 @@ from pathlib import Path
 from multiprocessing.pool import Pool, ThreadPool
 from itertools import repeat, groupby
 from time import time
+from functools import reduce
+import logging
 
 import psycopg2 as pg
 from psycopg2.extras import execute_values
@@ -32,6 +34,9 @@ from .address import Address
 
 POOL_SIZE = 8
 
+logging.basicConfig(level=logging.INFO)
+logger = logging.getLogger(__name__)
+
 
 class Bitcoin:
     def __init__(self, dsn, block_path, pool_size=POOL_SIZE):
@@ -42,7 +47,7 @@ class Bitcoin:
 
     @lazy
     def blocks(self):
-        return []
+        return {}
 
     @lazy
     def conn(self):
@@ -72,15 +77,15 @@ class Bitcoin:
 
     def initialize_blocks(self):
         tic = time()
+        logger.info("Running BigQuery for blocks.")
         client = bigquery.Client()
         query = """
         SELECT number, `hash`, timestamp, timestamp_month 
         FROM `bigquery-public-data.crypto_bitcoin.blocks`
         ORDER BY number;
         """
-        print(f"Calling BigQuery")
         bq_blocks = list(client.query(query))
-        print(f"Initializing {len(bq_blocks)} blocks.")
+        logger.info(f"Initializing {len(bq_blocks)} blocks.")
         with pg.connect(self.dsn) as conn:
             with conn.cursor() as curs:
                 execute_values(
@@ -98,17 +103,21 @@ class Bitcoin:
     @query
     def load_blocktime(self, curs):
         """
-        SELECT b_number, b_hash FROM bitcoin.imported_block WHERE b_timestamp <@ tstzrange(%s, %s)
+        SELECT b_number, b_hash
+        FROM bitcoin.imported_block
+        WHERE b_timestamp <@ tstzrange(%s, %s)
         """
-        self.blocks = [Block(self, b[0], b[1]) for b in curs.fetchall()]
+        self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
 
     @curse
     @query
     def load_blockspan(self, curs):
         """
-        SELECT b_number, b_hash FROM bitcoin.imported_block WHERE b_number <@ int4range(%s, %s)
+        SELECT b_number, b_hash
+        FROM bitcoin.imported_block
+        WHERE b_number <@ int4range(%s, %s + 1)
         """
-        self.blocks = [Block(self, b[0], b[1]) for b in curs.fetchall()]
+        self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
 
     def import_blocktime(self, start, end):
         with pg.connect(self.dsn) as conn:
@@ -123,7 +132,7 @@ class Bitcoin:
         if self.pool_size == 1:
             result = list(map(self.import_graph_month, months))
         else:
-            pool = Pool(self.POOL_SIZE)
+            pool = Pool(self.pool_size)
             result = list(pool.map(self.import_graph_month, months, 1))
 
         return result
@@ -133,7 +142,7 @@ class Bitcoin:
         tic = time()
         client = bigquery.Client()
 
-        print(f"Loading {month}")
+        logger.info(f"Loading {month}")
         query = f"""
         WITH TIDS AS (
             SELECT 
@@ -179,10 +188,10 @@ class Bitcoin:
                         (bn,),
                     )
                     if curs.fetchone()[0]:
-                        print(f"Block {bn} already done.")
+                        logger.debug(f"Block {bn} already done.")
                         continue
                     self.build_block_graph(curs, group, bn)
-            print(f"Took {(time() - tic)/60.0} minutes for {month}")
+            logger.info(f"Took {(time() - tic)/60.0} minutes for {month}")
 
     def build_block_graph(self, curs, group, bn):
 
@@ -221,22 +230,24 @@ class Bitcoin:
                 tx.add_output(Spend(self, o_id, t.o_value))
                 outputs.add(t.o_index)
 
-        print(f"Took {time()-tic:.4f} to parse block {block.number}.")
+        logger.debug(f"Took {time()-tic:.4f} to parse block {block.number}.")
         tic = time()
         block.finalize()
         self.conn.commit()
-        print(f"matrix block {block.number} write took {time()-tic:.4f}")
+        logger.debug(f"matrix block {block.number} write took {time()-tic:.4f}")
 
     def merge_all_blocks(self, suffix):
         if self.pool_size == 1:
             mapper = lambda f, s: list(map(f, s))
         else:
             thread_pool = ThreadPool(self.pool_size)
-            mapper = lambda f, s: thread_pool.map(f, s)
+            mapper = lambda f, s: thread_pool.map(f, s, 1)
 
         blocks = list(
             grouper(
-                zip(((b.hash, b.number) for b in self.blocks), repeat(suffix)), 2, None
+                zip(((b.hash, b.number) for b in self.blocks.values()), repeat(suffix)),
+                2,
+                None,
             )
         )
         while len(blocks) > 1:
@@ -264,14 +275,21 @@ class Bitcoin:
         return left + right
 
     def __iter__(self):
-        b_ids = self.BT.pattern().reduce_vector(monoid.LAND_BOOL_monoid)
-        for b_id, _ in b_ids:
-            yield Block.from_id(self, b_id)
+        return iter(self.blocks.values())
 
     def summary(self):
-        txs = self.TT.reduce_vector().apply(unaryop.POSITIONI_INT64)
-        min_tx = Tx(self, txs.reduce_int(monoid.MIN_MONOID))
-        max_tx = Tx(self, txs.reduce_int(monoid.MAX_MONOID))
+        min_tx = Tx(
+            self,
+            self.IT.T.reduce_vector()
+            .apply(unaryop.POSITIONI_INT64)
+            .reduce_int(monoid.MIN_MONOID),
+        )
+        max_tx = Tx(
+            self,
+            self.TO.reduce_vector()
+            .apply(unaryop.POSITIONI_INT64)
+            .reduce_int(monoid.MAX_MONOID),
+        )
 
         min_time = min_tx.block.timestamp.ctime()
         max_time = max_tx.block.timestamp.ctime()
@@ -279,14 +297,22 @@ class Bitcoin:
         in_val = self.IT.reduce_int()
         out_val = self.TO.reduce_int()
 
-        print(f"Blocks to Txs: {self.BT.nvals} values.")
-        print(f"Inputs to Tx: {self.IT.nvals} values.")
-        print(f"Tx to Outputs: {self.TO.nvals} values.")
-        print(f"Inputs to Outputs: {self.IO.nvals} values.")
-        print(f"Tx to Tx: {self.TT.nvals} values.")
+        print(
+            f"""\
+Blocks to Txs: {self.BT.nvals} values
+Inputs to Tx: {self.IT.nvals} values.
+Tx to Outputs: {self.TO.nvals} values.
+Inputs to Outputs: {self.IO.nvals} values.
+Tx to Tx: {self.TT.nvals} values.
+Blocks span {min_tx.block_number} to {max_tx.block_number}
+Earliest Transaction: {min_tx.hash}
+Latest Transaction: {max_tx.hash}
+Blocks time span {min_time} to {max_time}
+Total value input {btc(in_val)} output {btc(out_val)}
+"""
+        )
 
-        print(f"Blocks span {min_tx.block_number} to {max_tx.block_number}")
-        print(f"Earliest Transaction: {min_tx.hash}")
-        print(f"Latest Transaction: {max_tx.hash}")
-        print(f"Blocks time span {min_time} to {max_time}")
-        print(f"Total value input {btc(in_val)} output {btc(out_val)}")
+    def __repr__(self):
+        min_block = reduce(min, self.blocks.keys())
+        max_block = reduce(max, self.blocks.keys())
+        return f"<Bitcoin chain of {len(self.blocks)} blocks between {min_block} and {max_block}>"

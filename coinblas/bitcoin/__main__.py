@@ -4,7 +4,7 @@ if __name__ == "__main__":
     import argparse
 
     parser = argparse.ArgumentParser(description="CoinBLAS")
-    parser.add_argument("mode", default="query", help="query|init")
+    parser.add_argument("mode", default="query", help="query|init|summary")
     parser.add_argument("--start", help="Start block number")
     parser.add_argument("--end", help="End block number")
     parser.add_argument("--start-date", help="Start block number")
@@ -18,12 +18,14 @@ if __name__ == "__main__":
 
     from coinblas.bitcoin import Bitcoin
 
-    g = Bitcoin(args.db, args.block_path, args.pool_size)
+    chain = Bitcoin(args.db, args.block_path, args.pool_size)
     if args.mode == "init":
-        g.initialize_blocks()
-        g.import_blocktime(args.start, args.end)
+        chain.initialize_blocks()
+        chain.import_blocktime(args.start_date, args.end_date)
     else:
         if args.start and args.end:
-            g.load_blockspan(args.start, args.end)
+            chain.load_blockspan(args.start, args.end)
         elif args.start_date and args.end_date:
-            g.load_blocktime(args.start_date, args.end_date)
+            chain.load_blocktime(args.start_date, args.end_date)
+    if args.mode == "summary":
+        chain.summary()

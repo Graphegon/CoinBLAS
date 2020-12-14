@@ -69,15 +69,6 @@ class Block:
         return curs.fetchone()[0]
 
     @lazy
-    @curse
-    @query
-    def timestamp(self, curs):
-        """
-        SELECT b_timestamp_month FROM bitcoin.block WHERE b_number  = {self.number}
-        """
-        return curs.fetchone()[0]
-
-    @lazy
     def tx_vector(self):
         return self.chain.BT[self.id, :]
 
@@ -103,9 +94,9 @@ class Block:
         execute_values(
             curs,
             """
-            INSERT INTO bitcoin.tx (t_hash, t_id) VALUES %s
+            INSERT INTO bitcoin.tx (t_id, t_hash) VALUES %s
             """,
-            [(t.hash, t.id) for t in self.pending_txs],
+            self.pending_txs,
         )
         execute_values(
             curs,
@@ -117,21 +108,23 @@ class Block:
         self.write_block_files(self.chain.block_path)
 
     def add_tx(self, tx):
-        self.pending_txs.append(tx)
+        self.pending_txs.append((tx.id, tx.hash))
 
     def add_address(self, address, a_id):
         self.pending_addrs.append((address, a_id))
 
     def write_block_files(self, path):
+        from .bitcoin import logger
+
         b = Path(path) / Path(self.hash[-2]) / Path(self.hash[-1])
         b.mkdir(parents=True, exist_ok=True)
-        print(f"Writing {self.BT.nvals} BT vals for {self.number}.")
+        logger.debug(f"Writing {self.BT.nvals} BT vals for {self.number}.")
         BTf = b / Path(f"{self.number}_{self.hash}_BT.ssb")
 
-        print(f"Writing {self.IT.nvals} IT vals for {self.number}.")
+        logger.debug(f"Writing {self.IT.nvals} IT vals for {self.number}.")
         ITf = b / Path(f"{self.number}_{self.hash}_IT.ssb")
 
-        print(f"Writing {self.TO.nvals} TO vals for {self.number}.")
+        logger.debug(f"Writing {self.TO.nvals} TO vals for {self.number}.")
         TOf = b / Path(f"{self.number}_{self.hash}_TO.ssb")
 
         self.BT.to_binfile(bytes(BTf))
