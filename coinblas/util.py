@@ -45,12 +45,11 @@ def query(f):
 
     @wraps(f)
     def wrapper(self, cursor, *args, **kwargs):
-        conn = cursor.connection
         params = args[:arg_count]
-        query = eval("""f'''""" + doc_query + """'''""", dict(self=self))
-        statements = query.split(";")
-        for s in statements:
-            cursor.execute(query, params or None)
+        kw2 = kwargs.copy()
+        kw2["self"] = self
+        query = eval("""f'''""" + doc_query + """'''""", kw2)
+        cursor.execute(query, params or None)
         return f(self, cursor, *args[arg_count:], **kwargs)
 
     return wrapper

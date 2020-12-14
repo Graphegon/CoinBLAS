@@ -10,12 +10,14 @@ from coinblas.util import (
 from pygraphblas import (
     Accum,
     UINT64,
+    BOOL,
     Vector,
     binaryop,
     lib,
     monoid,
     semiring,
     unaryop,
+    descriptor,
 )
 
 
@@ -41,10 +43,22 @@ class Address:
             yield Spend(self.chain, i, self.chain.IT[i, :].reduce_int())
 
     @curse
-    def id_vector(self, curs, assign=0):
-        v = maximal_vector(UINT64)
+    def id_vector(self, curs, T=UINT64, assign=0):
+        v = maximal_vector(T)
         for a_id in self.spend_ids():
             v[a_id] = assign
+        return v
+
+    def bfs(self, depth=lib.GxB_INDEX_MAX):
+        v = self.id_vector(UINT64, 0)
+        q = self.id_vector(BOOL, True)
+        IO = self.chain.IO
+        for level in range(min(depth, IO.nvals)):
+            v.assign_scalar(level, mask=q, desc=descriptor.S)
+            if not q:
+                break
+            with BOOL.ANY_PAIR:
+                q = q.vxm(IO, mask=v, desc=descriptor.RC)
         return v
 
     @curse
@@ -90,7 +104,7 @@ class Address:
             f"and {get_block_number(end_max)} "
         )
         send = start[end.pattern()]
-        for level in min(max_iters, range(IO.nvals)):
+        for level in range(min(max_iters, IO.nvals)):
             w = start[end.pattern()]
             with semiring.PLUS_MIN, Accum(binaryop.MIN):
                 start @= IO

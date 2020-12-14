@@ -75,6 +75,15 @@ class Bitcoin:
         with semiring.PLUS_PLUS:
             return self.IT.T @ self.TO.T
 
+    def addr(self, a):
+        return Address(self, a)
+
+    @curse
+    def tx(self, curs, hash):
+        curs.execute("select t_id from bitcoin.tx where t_hash = %s", (hash,))
+        t_id = curs.fetchone()[0]
+        return Tx(self, t_id)
+
     def initialize_blocks(self):
         tic = time()
         logger.info("Running BigQuery for blocks.")
@@ -280,13 +289,13 @@ class Bitcoin:
     def summary(self):
         min_tx = Tx(
             self,
-            self.IT.T.reduce_vector()
+            id=self.IT.T.reduce_vector()
             .apply(unaryop.POSITIONI_INT64)
             .reduce_int(monoid.MIN_MONOID),
         )
         max_tx = Tx(
             self,
-            self.TO.reduce_vector()
+            id=self.TO.reduce_vector()
             .apply(unaryop.POSITIONI_INT64)
             .reduce_int(monoid.MAX_MONOID),
         )

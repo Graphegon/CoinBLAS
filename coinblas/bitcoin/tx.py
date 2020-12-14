@@ -12,6 +12,7 @@ from .spend import Spend
 
 class Tx:
     def __init__(self, chain, id, hash=None, block=None):
+        assert id is not None or hash is not None
         self.chain = chain
         self.id = id
         if hash is not None:
