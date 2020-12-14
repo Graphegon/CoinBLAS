@@ -1,6 +1,14 @@
 
 ![Logo](./docs/Logo.png)
 
+Bitcoin present a particularly stubborn graph analysis problem:
+transactions can have many inputs and outputs, both of which can be
+created at will by the network's users.  Starting from one output and
+traversing the graph can explode the number of nodes that need to be
+visited in order to search across the blockchain.  Following the flow
+of value can be tricky when you consider that money can go flow back
+and forth between two addresses.
+
 CoinBLAS Community Edition is a Graph Linear Algebra analysis platform
 for bitcoin that uses the GraphBLAS graph API via the pygraphblas
 Python binding. If you have enough RAM, Google BigQuery budget, cores
@@ -20,24 +28,6 @@ Once you've loaded the data, CoinBLAS stores the graphs as SuiteSparse
 binary files.  At the moment there are 3 files per block, so a full
 graph load will save 1.5M files.  The directory layout is partitioned
 256 ways on last two hex characters of the block's hash.
-
-# Usage
-
-There are three modes of the program, initializing, importing, and
-querying.
-
-Initializing downloads all the block meta information from BigQuery
-and stores it in a local PostgreSQL database.  This will cost a few
-dollars.
-
-After initialization, you can choose the month or block ranges you
-want to import from BigQuery.  This is a highly variable cost from a
-few dollars for a single month to >$500 to import the whole chain.
-
-Once initialized and imported, the graphs can be loaded into RAM and
-queried through the Python API.  The PostgreSQL schema also provides a
-simple SQL interface to the metadata for mapping numeric ids to
-addresses and hashes.
 
 # Intro
 
@@ -132,4 +122,22 @@ show below.
 Reduction...still working on you.
 
 ![Exposure Reduction](./docs/Reduction.png)
+
+# Usage
+
+There are three modes of the program, initializing, importing, and
+querying.
+
+Initializing downloads all the block meta information from BigQuery
+and stores it in a local PostgreSQL database.  This will cost a few
+dollars.
+
+After initialization, you can choose the month or block ranges you
+want to import from BigQuery.  This is a highly variable cost from a
+few dollars for a single month to >$500 to import the whole chain.
+
+Once initialized and imported, the graphs can be loaded into RAM and
+queried through the Python API.  The PostgreSQL schema also provides a
+simple SQL interface to the metadata for mapping numeric ids to
+addresses and hashes.
 
