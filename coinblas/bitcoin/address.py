@@ -61,7 +61,7 @@ class Address:
         return pi
 
     @curse
-    def exposure(self, curs, end_addr, max_iters=lib.GxB_INDEX_MAX):
+    def exposure(self, curs, end_addr, depth=lib.GxB_INDEX_MAX):
         from .relation import Exposure
         from .bitcoin import logger
 
@@ -103,7 +103,7 @@ class Address:
             f"and {get_block_number(end_max)} "
         )
         send = start[end.pattern()]
-        for level in range(min(max_iters, IO.nvals)):
+        for level in range(min(depth, IO.nvals)):
             w = start[end.pattern()]
             with semiring.PLUS_MIN, Accum(binaryop.MIN):
                 start @= IO

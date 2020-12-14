@@ -36,7 +36,8 @@ algorithms with Linear Algebra that are used by CoinBLAS.  The core
 concept of the GraphBLAS is that dualism that a graph can construct a
 matrix, and a matrix can construct a graph.  This mathematical
 communion allows the power of Linear Algebra to be used to analyze and
-manipulate graphs.
+manipulate graphs.  In the case of CoinBLAS the flow of bitcoin
+through transactions from one address to another.
 
 ![Graph Adjacency Matrix](./docs/Adjacency.png)
 
@@ -126,18 +127,75 @@ Reduction...still working on you.
 # Usage
 
 There are three modes of the program, initializing, importing, and
-querying.
+querying.  For initializing and importing, CoinBLAS needs a Google
+Compute credientials file in the `GOOGLE_APPLICATION_CREDENTIALS`
+environment variable.  **YOU WILL BE BILLED BY GOOGLE!**
 
 Initializing downloads all the block meta information from BigQuery
 and stores it in a local PostgreSQL database.  This will cost a few
 dollars.
 
+    ./coinblas.sh init
+
 After initialization, you can choose the month or block ranges you
 want to import from BigQuery.  This is a highly variable cost from a
 few dollars for a single month to >$500 to import the whole chain.
+
+    ./coinblas.sh --start-date '2014-01-01' --end-date '2014-05-01' --pool-size 8 import
+	
+Optionally, You can init and import *at the same time* by providing a
+time range like import:
+
+    ./coinblas.sh --start-date '2014-01-01' --end-date '2014-05-01' --pool-size 8 init
+	
+Importing uses the `multiprocessing` module to spawn `--pool-size`
+BigQueries concurrently on month boundaries.  Because Google publishes
+the Bitcoin blockchain partitioned by month, this reduces the amount
+of data each parallel month import needs to scan.  It also means if
+you have 100 cores, you can import 100 months in parallel provided you
+have sufficient IO bandwith to write the binary files and commit the
+postgresql data.
 
 Once initialized and imported, the graphs can be loaded into RAM and
 queried through the Python API.  The PostgreSQL schema also provides a
 simple SQL interface to the metadata for mapping numeric ids to
 addresses and hashes.
+
+    ./coinblas.sh --start-date '2014-01-01' --end-date '2014-05-01' --pool-size 8 query
+
+# Chain API
+
+A Chain object contains blocks.  It knows about all blocks after
+initialization, but only a few of them may actually be imported into
+graph memory as you may only be interested in the most recent
+blockchain history.
+
+The chain has a summary method that tells you which blocks are
+currently imported:
+
+    >>> chain.summary()
+	Blocks to Txs: 7657139 values
+	Inputs to Tx: 20646146 values.
+	Tx to Outputs: 23191544 values.
+	Inputs to Outputs: 106256625 values.
+	Tx to Tx: 17816370 values.
+	Blocks span 277996 to 298512
+	Earliest Transaction: 00130e779e075b5b222e077521d55aca806668fe71a1c9111f6748b5b646402c
+	Latest Transaction: fd7d6fc9d98f100f04852ba1f19a202898d50a93f521b599df5ae552f675497d
+	Blocks time span Wed Jan  1 00:11:09 2014 to Wed Apr 30 23:56:06 2014
+	Total value input 81999527.4824258 output 82512452.4824258
+
+The blocks in the chain are contained in the attribute `blocks`, which
+is a dictionary that maps block number to Block objects.
+
+    >>> chain.blocks[278000]
+    <Block number: 278000>
+
+Iterating a block iterates over the transactions in the block:
+
+	>>>	len(list(chain.blocks[278000]))
+	143
+	>>> t1 = list(chain.blocks[278000])[0]
+	
+
 
