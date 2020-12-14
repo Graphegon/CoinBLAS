@@ -70,6 +70,15 @@ transactions and outputs.  This order is exploited by CoinBLAS by
 storing the rows and columns of matrices *in the same immutable
 order*.
 
+This causes the structure of a CoinBLAS graph to have edges that
+always point toward the future.  Inputs can only be outputs of
+previous transactions (or coinbase).  This forms a [Directed Acyclic
+Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) that in
+the matrix world forms an Upper [Triangular
+Matrix](https://en.wikipedia.org/wiki/Triangular_matrix):
+
+![DAG forms Upper Triangular Matrix](./docs/DAG.png)
+
 Matrices are two dimensional and typically have dimensions denoted by
 "M by N". Each value has an row and column index into the matrix
 within the "keyspace" of *M by N*.  By convention in GraphBLAS these
