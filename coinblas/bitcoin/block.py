@@ -105,6 +105,17 @@ class Block:
             """,
             self.pending_addrs,
         )
+        execute_values(
+            curs,
+            f"""
+        UPDATE bitcoin.block 
+            SET b_addresses = s.agg
+            FROM (SELECT hll_add_agg(hll_hash_bigint(v.id)) as agg 
+                  FROM (VALUES %s) v(id)) s
+        WHERE b_number = {self.number}
+            """,
+            [(a[1],) for a in self.pending_addrs],
+        )
         self.write_block_files(self.chain.block_path)
 
     def add_tx(self, tx):
@@ -114,17 +125,18 @@ class Block:
         self.pending_addrs.append((address, a_id))
 
     def write_block_files(self, path):
-        from .bitcoin import logger
 
+        debug = self.chain.logger.debug
+        
         b = Path(path) / Path(self.hash[-2]) / Path(self.hash[-1])
         b.mkdir(parents=True, exist_ok=True)
-        logger.debug(f"Writing {self.BT.nvals} BT vals for {self.number}.")
+        debug(f"Writing {self.BT.nvals} BT vals for {self.number}.")
         BTf = b / Path(f"{self.number}_{self.hash}_BT.ssb")
 
-        logger.debug(f"Writing {self.IT.nvals} IT vals for {self.number}.")
+        debug(f"Writing {self.IT.nvals} IT vals for {self.number}.")
         ITf = b / Path(f"{self.number}_{self.hash}_IT.ssb")
 
-        logger.debug(f"Writing {self.TO.nvals} TO vals for {self.number}.")
+        debug(f"Writing {self.TO.nvals} TO vals for {self.number}.")
         TOf = b / Path(f"{self.number}_{self.hash}_TO.ssb")
 
         self.BT.to_binfile(bytes(BTf))
@@ -138,4 +150,4 @@ class Block:
             yield Tx(self.chain, id=t_id)
 
     def __repr__(self):
-        return f"<Block number: {self.number}>"
+        return f"<Block: {self.number}>"

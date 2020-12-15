@@ -37,13 +37,13 @@ POOL_SIZE = 8
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-
-class Bitcoin:
-    def __init__(self, dsn, block_path, pool_size=POOL_SIZE):
+class Blockchain:
+    def __init__(self, dsn, block_path, pool_size=POOL_SIZE, logger=logger):
         self.chain = self
         self.dsn = dsn
         self.block_path = Path(block_path)
         self.pool_size = pool_size
+        self.logger = logger
 
     @lazy
     def blocks(self):
@@ -86,7 +86,7 @@ class Bitcoin:
 
     def initialize_blocks(self):
         tic = time()
-        logger.info("Running BigQuery for blocks.")
+        self.logger.info("Running BigQuery for blocks.")
         client = bigquery.Client()
         query = """
         SELECT number, `hash`, timestamp, timestamp_month 
@@ -94,7 +94,7 @@ class Bitcoin:
         ORDER BY number;
         """
         bq_blocks = list(client.query(query))
-        logger.info(f"Initializing {len(bq_blocks)} blocks.")
+        self.logger.info(f"Initializing {len(bq_blocks)} blocks.")
         with pg.connect(self.dsn) as conn:
             with conn.cursor() as curs:
                 execute_values(
@@ -151,7 +151,7 @@ class Bitcoin:
         tic = time()
         client = bigquery.Client()
 
-        logger.info(f"Loading {month}")
+        self.logger.info(f"Loading {month}")
         query = f"""
         WITH TIDS AS (
             SELECT 
@@ -197,10 +197,10 @@ class Bitcoin:
                         (bn,),
                     )
                     if curs.fetchone()[0]:
-                        logger.debug(f"Block {bn} already done.")
+                        self.logger.debug(f"Block {bn} already done.")
                         continue
                     self.build_block_graph(curs, group, bn)
-            logger.info(f"Took {(time() - tic)/60.0} minutes for {month}")
+            self.logger.info(f"Took {(time() - tic)/60.0} minutes for {month}")
 
     def build_block_graph(self, curs, group, bn):
 
@@ -239,11 +239,11 @@ class Bitcoin:
                 tx.add_output(Spend(self, o_id, t.o_value))
                 outputs.add(t.o_index)
 
-        logger.debug(f"Took {time()-tic:.4f} to parse block {block.number}.")
+        self.logger.debug(f"Took {time()-tic:.4f} to parse block {block.number}.")
         tic = time()
         block.finalize()
         self.conn.commit()
-        logger.debug(f"matrix block {block.number} write took {time()-tic:.4f}")
+        self.logger.debug(f"matrix block {block.number} write took {time()-tic:.4f}")
 
     def merge_all_blocks(self, suffix):
         if self.pool_size == 1:
@@ -259,6 +259,7 @@ class Bitcoin:
                 None,
             )
         )
+        self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
         while len(blocks) > 1:
             blocks = list(grouper(mapper(self.merge_block_pair, blocks), 2, None))
         return self.merge_block_pair(blocks[0])

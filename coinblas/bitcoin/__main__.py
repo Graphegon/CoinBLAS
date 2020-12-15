@@ -1,4 +1,4 @@
-import os
+import os, logging
 
 if __name__ == "__main__":
     import argparse
@@ -14,18 +14,31 @@ if __name__ == "__main__":
     parser.add_argument(
         "--block-path", default=os.getenv("COINBLAS_PATH"), help="Block file Path"
     )
+    parser.add_argument(
+        "--log-level", default=os.getenv("COINBLAS_LOG_LEVEL", 'INFO'), help="Log level."
+    )
     args = parser.parse_args()
 
-    from coinblas.bitcoin import Bitcoin
+    from coinblas.bitcoin import Bitcoin, logger
+    from coinblas.util import *
+
+    logger.setLevel(getattr(logging, args.log_level.upper()))
 
     chain = Bitcoin(args.db, args.block_path, args.pool_size)
+
     if args.mode == "init":
         chain.initialize_blocks()
-        chain.import_blocktime(args.start_date, args.end_date)
-    else:
+        if args.start_date and args.end_date:
+            chain.import_blocktime(args.start_date, args.end_date)
+
+    elif args.mode == "import":
+            chain.import_blocktime(args.start_date, args.end_date)
+
+    elif args.mode == "query":
         if args.start and args.end:
             chain.load_blockspan(args.start, args.end)
         elif args.start_date and args.end_date:
             chain.load_blocktime(args.start_date, args.end_date)
-    if args.mode == "summary":
+
+    elif args.mode == "summary":
         chain.summary()

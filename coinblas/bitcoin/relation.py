@@ -29,6 +29,8 @@ class Relation:
         """
         from .address import Address
 
+        if self.coinbase:
+            return Address(self.chain, 'coinbase')
         r = curs.fetchone()
         if r is None:
             return
@@ -48,7 +50,7 @@ class Relation:
     def spent(self):
         from .tx import Tx
 
-        if self.spent_vpector:
+        if self.spent_vector:
             return Tx(self.chain, id=self.spent_vector.to_lists()[0][0])
 
     def __repr__(self):

@@ -24,11 +24,6 @@ at a time, costing only a few dollars per data-month.  Current memory
 requirements to load all of November 2020 is 16GB of RAM, easily done
 on relatively modest laptop hardware.
 
-Once you've loaded the data, CoinBLAS stores the graphs as SuiteSparse
-binary files.  At the moment there are 3 files per block, so a full
-graph load will save 1.5M files.  The directory layout is partitioned
-256 ways on last two hex characters of the block's hash.
-
 # Intro
 
 The next couple of sections serve as an introduction to Graph
@@ -165,22 +160,28 @@ you have 100 cores, you can import 100 months in parallel provided you
 have sufficient IO bandwith to write the binary files and commit the
 postgresql data.
 
-Once initialized and imported, the graphs can be loaded into RAM and
-queried through the Python API.  The PostgreSQL schema also provides a
-simple SQL interface to the metadata for mapping numeric ids to
-addresses and hashes.
+Once you've imported the data, CoinBLAS stores the graphs as
+SuiteSparse binary files and you won't need to load the same blocks
+again.  At the moment there are 3 files per block, so a full graph
+load will save 1.5M files.  The directory layout is partitioned 256
+ways on last two hex characters of the block's hash.
+
+Once initialized and imported, the graphs can be loaded into memory
+and queried through the Python API.  The PostgreSQL schema also
+provides a simple SQL interface to the metadata for mapping numeric
+ids to addresses and hashes.
 
     ./coinblas.sh --start-date '2014-01-01' --end-date '2014-05-01' --pool-size 8 query
 
 # Chain API
 
-A Chain object contains blocks.  It knows about all blocks after
-initialization, but only a few of them may actually be imported into
-graph memory as you may only be interested in the most recent
-blockchain history.
+The `Chain` object contains blocks and is the central object in
+CoinBLAS.  It knows about all blocks after initialization, but only a
+few of them may actually be imported into graph memory as you may only
+be interested in the most recent blockchain history.
 
 The chain has a summary method that tells you which blocks are
-currently imported:
+currently imported and their block and time span.
 
     >>> chain.summary()
 	Blocks to Txs: 7657139 values
