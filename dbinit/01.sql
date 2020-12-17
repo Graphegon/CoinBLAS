@@ -39,6 +39,9 @@ ALTER TABLE ONLY bitcoin.base_tx
         ADD PRIMARY KEY (t_id);
 
 ALTER TABLE bitcoin.base_tx
+        ALTER COLUMN t_id SET STATISTICS 1000;
+
+ALTER TABLE bitcoin.base_tx
         ALTER COLUMN t_hash SET STORAGE plain;
 
 CREATE VIEW bitcoin.tx AS
@@ -54,7 +57,7 @@ CREATE INDEX base_tx_t_hash
 CREATE INDEX base_tx_b_number
     ON ONLY bitcoin.base_tx
     USING brin(((t_id >> 32)::integer))
-    WITH (pages_per_range = 64, autosummarize = on);
+    WITH (pages_per_range = 32, autosummarize = on);
 
 -- Output
 
@@ -64,12 +67,15 @@ CREATE TABLE bitcoin.base_output(
        ) PARTITION BY RANGE (o_id);
 
 ALTER TABLE bitcoin.base_output
+        ALTER COLUMN o_id SET STATISTICS 1000;
+
+ALTER TABLE bitcoin.base_output
     ALTER COLUMN o_address SET STORAGE plain;
 
 CREATE INDEX base_output_o_id
     ON ONLY bitcoin.base_output
     USING brin(o_id)
-    WITH (pages_per_range = 64, autosummarize = on);
+    WITH (pages_per_range = 32, autosummarize = on);
 
 CREATE INDEX base_output_o_address
     ON ONLY bitcoin.base_output (o_address);
@@ -77,12 +83,12 @@ CREATE INDEX base_output_o_address
 CREATE INDEX base_output_b_number
     ON ONLY bitcoin.base_output
     USING brin(((o_id >> 32)::integer))
-    WITH (pages_per_range = 64, autosummarize = on);
+    WITH (pages_per_range = 32, autosummarize = on);
 
 CREATE INDEX base_output_t_id
     ON ONLY bitcoin.base_output
     USING brin(((o_id >> 16) << 16))
-    WITH (pages_per_range = 64, autosummarize = on);
+    WITH (pages_per_range = 32, autosummarize = on);
 
 CREATE VIEW bitcoin.output AS
     SELECT
@@ -101,10 +107,13 @@ DECLARE
     min_id bigint;
     max_id bigint;
     name text = replace(timestamp_month::text, '-', '_');
+
 BEGIN
-    SELECT min(b_number), max(b_number) INTO min_id, max_id
+    SELECT min(b_number), max(b_number)
+    INTO min_id, max_id
     FROM bitcoin.base_block
     WHERE b_timestamp_month = timestamp_month;
+
     min_id = min_id << 32;
     max_id = ((max_id + 1) << 32) - 1;
 
@@ -133,7 +142,8 @@ $$
 DECLARE
     min_id bigint;
     max_id bigint;
-    n text = replace(timestamp_month::text, '-', '_');
+    name text = replace(timestamp_month::text, '-', '_');
+
 BEGIN
     SELECT min(b_number), max(b_number)
     INTO min_id, max_id
@@ -151,33 +161,34 @@ BEGIN
             ADD PRIMARY KEY (t_id);
 
         CREATE INDEX "base_tx_%1$s_t_hash"
-            ON bitcoin."base_tx_%1$s" (t_hash);
+            ON bitcoin."base_tx_%1$s"
+            USING btree(t_hash);
 
         CREATE INDEX "base_tx_%1$s_b_number"
             ON bitcoin."base_tx_%1$s"
             USING brin(((t_id >> 32)::integer))
-            WITH (pages_per_range = 128, autosummarize = on);
+            WITH (pages_per_range = 32, autosummarize = on);
 
         -- Output indexing
-
-        CREATE INDEX "base_output_%1$s_o_id"
-            ON bitcoin."base_output_%1$s"
-            USING brin(o_id)
-            WITH (pages_per_range = 128, autosummarize = on);
 
         CREATE INDEX "base_output_%1$s_o_address"
             ON bitcoin."base_output_%1$s"
             USING btree(o_address);
 
+        CREATE INDEX "base_output_%1$s_o_id"
+            ON bitcoin."base_output_%1$s"
+            USING brin(o_id)
+            WITH (pages_per_range = 32, autosummarize = on);
+
         CREATE INDEX "base_output_%1$s_b_number"
             ON bitcoin."base_output_%1$s"
             USING brin(((o_id >> 32)::integer))
-            WITH (pages_per_range = 128, autosummarize = on);
+            WITH (pages_per_range = 32, autosummarize = on);
 
         CREATE INDEX "base_output_%1$s_t_id"
              ON bitcoin."base_output_%1$s"
             USING brin(((o_id >> 16) << 16))
-            WITH (pages_per_range = 128, autosummarize = on);
+            WITH (pages_per_range = 32, autosummarize = on);
 
         -- Attach partitions
 
@@ -207,7 +218,7 @@ BEGIN
         ALTER INDEX bitcoin.base_output_t_id
             ATTACH PARTITION bitcoin."base_output_%1$s_t_id";
 
-    $i$, n, min_id, max_id);
+    $i$, name, min_id, max_id);
 END;
 $$;
 

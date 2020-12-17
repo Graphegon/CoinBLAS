@@ -2,6 +2,7 @@ version: '3'
 services:
   db:
     build: db
+    shm_size: 1g
     env_file:
       - database.env
     ports:

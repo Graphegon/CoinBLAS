@@ -45,6 +45,5 @@ if __name__ == "__main__":
             chain.load_blocktime(args.start_date, args.end_date)
         IPython.embed()
 
-
     elif args.mode == "summary":
         chain.summary()

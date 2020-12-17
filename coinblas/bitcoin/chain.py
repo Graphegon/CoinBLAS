@@ -258,7 +258,8 @@ class Chain:
         self.conn.commit()
         self.logger.debug(
             f"Block {block.number}: wrote "
-            f"{block.tx_vector.size} transactions in {time()-tic:.4f}")
+            f"{block.tx_vector.size} transactions in {time()-tic:.4f}"
+        )
 
     def merge_all_blocks(self, suffix):
         if self.pool_size == 1:

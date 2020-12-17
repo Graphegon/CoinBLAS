@@ -34,21 +34,23 @@ requirements to load all of November 2020 is 12GB of RAM, easily done
 on relatively modest laptop hardware.
 
 The "traditional" approach to doing this kind of Bitcoin graph
-analysis is to load all the data into a large horizontally clustered
-database, and then use map-reduce ETL frameworks to load, process, and
-reduce.  This kind of large scale deployment is very complex, and
-suffers from the typical distributed graph problem: Local data access
-is fast and consistent, on the order of nanoseconds, but remote data
-access can be a 100,000 times slower with much higher variation.  
+analysis is to load all the data into a large horizontally sharded
+database cluster, and then use map-reduce ETL frameworks to load,
+process, and reduce.  This kind of large scale deployment is very
+complex, and suffers from the typical distributed graph problem: Local
+data access is fast and consistent, on the order of nanoseconds, but
+remote data access can be a 100,000 times slower with much higher
+variance.
 
-When a "step" in graph can go to literally many of any other vertices
-in the graph, there is simply no "best" partitioning strategy.  If you
-replicate every vertex to one database node, then you suffer heavy
-"shuffling" whenever you take a step, this is slow and it gets slower
-as the cluster grows.  Replicating to more nodes means more storage,
-this is faster, but more expensive and gets even more expensive as the
-cluster grows.  Distributed graph databases are always a lose-lose
-scenario.  Your goal is to minimize your losses.
+When a single "step" in a graph can go literally in a thousand
+different directions in the graph, there is simply no "best"
+partitioning strategy.  If you replicate every vertex to one database
+node, then you suffer heavy "shuffling" whenever you take a step, this
+is slow and it gets slower as the cluster grows.  Replicating to more
+nodes means more storage, this is faster, but more expensive and gets
+even more expensive as the cluster grows.  Distributed graph databases
+are always a lose-lose scenario.  Your goal is to minimize your
+losses.
 
 Neither CoinBLAS nor the GraphBLAS API are a magic bullet that makes
 graph problems suddenly more tractable.  Work is work, and traversing
@@ -61,15 +63,15 @@ to pay for "always local" access?
 
 The CoinBLAS approach has a number of distinct advantages:
 
-	- Linear Algebra is a powerful mathematical abstraction over graphs.
+- Linear Algebra is a powerful mathematical abstraction over graphs.
 
-	- Extremely efficient hypersparse graph multiplication.
+- Extremely efficient hypersparse graph multiplication.
 
-    - The same code can run on laptop or multi-GPU supercomputer.
-	
-	- Integrated Jupyter Notebook server, get started immediately.
-	
-	- Python allows fast, ad-hoc queries and integration with many 3rd party tools.
+- The same code can run on laptop or multi-GPU supercomputer.
+
+- Integrated Jupyter Notebook server, get started immediately.
+
+- Python allows fast, ad-hoc queries and integration with many 3rd party tools.
 	
 So what's so great about Linear Algebra in the first place and what
 does it have to do with graphs?  Read on or skip ahead to the Usage
