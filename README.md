@@ -26,10 +26,38 @@ full-graph, full-flow analysis using the GraphBLAS API.
 
 Loading the full blockchain graph takes up to 512GB of memory and
 $1000 worth of BigQuery cost, so that's probably out of most people's
-budgets.  Thankfully, CoinBLAS can load a month's worth of graph data
-at a time, costing only a few dollars per data-month.  Current memory
-requirements to load all of November 2020 is 16GB of RAM, easily done
+budgets.  However CoinBLAS can load a month's worth of graph data at a
+time, costing only a few dollars per data-month.  Current memory
+requirements to load all of November 2020 is 12GB of RAM, easily done
 on relatively modest laptop hardware.
+
+The "traditional" approach to doing this kind of Bitcoin graph
+analysis is to load all the data into a large horizontally clustered
+database, and then use map-reduce ETL frameworks to load, process, and
+reduce.  This kind of large scale deployment is very complex, and
+suffers from the typical distributed graph problem: Local data access
+is fast and consistent, on the order of nanoseconds, but remote data
+access can be a million times slower on the order of hundreds of
+milliseconds with much higher variation.
+
+Neither CoinBLAS nor the GraphBLAS API are a magic bullet that makes
+graph problems suddenly tractable.  Work is work, and traversing
+millions of nodes is a lot of work.  The GraphBLAS sidesteps the whole
+distributed database problem by simply storing the entire graph in
+memory.  However The CoinBLAS approach has a number of distinct
+advantages:
+
+	- Linear Algebra is a powerful mathematical abstraction over graphs.
+
+	- Extremely efficient hypersparse graph multiplication.
+
+    - The same code can run on laptop or multi-GPU supercomputer.
+	
+	- Python allows fast, ad-hoc queries and integration with many 3rd party tools.
+	
+So what's so great about Linear Algebra in the first place and what
+does it have to do with graphs?  Read on or skip ahead to the Usage
+and API sections.
 
 # Intro
 
