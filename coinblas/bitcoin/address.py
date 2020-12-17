@@ -32,7 +32,7 @@ class Address:
     @query
     def spend_ids(self, curs):
         """
-        SELECT a_id FROM bitcoin.address WHERE a_address = '{self.address}'
+        SELECT o_id FROM bitcoin.output WHERE o_address = '{self.address}'
         """
         return [i[0] for i in curs.fetchall()]
 
@@ -45,15 +45,15 @@ class Address:
 
     def id_vector(self, assign=0, T=UINT64):
         v = maximal_vector(T)
-        for a_id in self.spend_ids:
-            v[a_id] = assign
+        for o_id in self.spend_ids:
+            v[o_id] = assign
         return v
 
     def bfs_parent(self, depth=lib.GxB_INDEX_MAX, sring=semiring.ANY_SECONDI1_INT64):
         IO = self.chain.IO
         q = self.id_vector().apply(unaryop.POSITIONI1_INT64)
         pi = q.dup()
-        for level in range(min(depth+1, IO.nvals)):
+        for level in range(min(depth + 1, IO.nvals)):
             q.vxm(IO, out=q, mask=pi, semiring=sring, desc=descriptor.RC)
             if not q:
                 break
@@ -103,7 +103,7 @@ class Address:
             f"and {get_block_number(end_max)} "
         )
         send = start[end.pattern()]
-        for level in range(min(depth+1, IO.nvals)):
+        for level in range(min(depth + 1, IO.nvals)):
             w = start[end.pattern()]
             with semiring.PLUS_MIN, Accum(binaryop.MIN):
                 start @= IO
@@ -122,7 +122,8 @@ class Address:
         max_block = self.chain.blocks[
             get_block_number(
                 send.apply(unaryop.POSITIONI_INT64).reduce_int(monoid.MAX_MONOID)
-            )]
+            )
+        ]
         debug(f"Got as far as block {max_block}")
         return send
 

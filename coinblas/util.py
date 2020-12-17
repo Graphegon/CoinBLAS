@@ -59,6 +59,8 @@ def query(f):
 def curse(func):
     def _decorator(self, *args, **kwargs):
         with self.chain.conn.cursor() as curs:
-            return func(self, curs, *args, **kwargs)
+            r = func(self, curs, *args, **kwargs)
+            self.chain.logger.debug(curs.statusmessage)
+            return r
 
     return _decorator

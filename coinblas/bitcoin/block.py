@@ -55,7 +55,7 @@ class Block:
     @query
     def hash(self, curs):
         """
-        SELECT b_hash FROM bitcoin.block WHERE b_number = {self.number}
+        SELECT b_hash FROM bitcoin.base_block WHERE b_number = {self.number}
         """
         return curs.fetchone()[0]
 
@@ -64,7 +64,7 @@ class Block:
     @query
     def timestamp(self, curs):
         """
-        SELECT b_timestamp FROM bitcoin.block WHERE b_number  = {self.number}
+        SELECT b_timestamp FROM bitcoin.base_block WHERE b_number  = {self.number}
         """
         return curs.fetchone()[0]
 
@@ -76,7 +76,7 @@ class Block:
     def insert(self, curs, bq):
         curs.execute(
             """
-        INSERT INTO bitcoin.block 
+        INSERT INTO bitcoin.base_block 
             (b_number, b_hash, b_timestamp, b_timestamp_month)
         VALUES 
             (%s, %s, %s, %s)
@@ -86,29 +86,30 @@ class Block:
 
     @curse
     @query
-    def finalize(self, curs):
+    def finalize(self, curs, month):
         """
-        UPDATE bitcoin.block SET b_imported_at = now()
+        UPDATE bitcoin.base_block SET b_imported_at = now()
         WHERE b_number = {self.number}
         """
+        month = str(month).replace("-", "_")
         execute_values(
             curs,
-            """
-            INSERT INTO bitcoin.tx (t_id, t_hash) VALUES %s
+            f"""
+            INSERT INTO bitcoin."base_tx_{month}" (t_id, t_hash) VALUES %s
             """,
             self.pending_txs,
         )
         execute_values(
             curs,
-            """
-            INSERT INTO bitcoin.address (a_address, a_id) VALUES %s
+            f"""
+            INSERT INTO bitcoin."base_output_{month}" (o_address, o_id) VALUES %s
             """,
             self.pending_addrs,
         )
         execute_values(
             curs,
             f"""
-        UPDATE bitcoin.block 
+        UPDATE bitcoin.base_block 
             SET b_addresses = s.agg
             FROM (SELECT hll_add_agg(hll_hash_bigint(v.id)) as agg 
                   FROM (VALUES %s) v(id)) s
@@ -121,22 +122,14 @@ class Block:
     def add_tx(self, tx):
         self.pending_txs.append((tx.id, tx.hash))
 
-    def add_address(self, address, a_id):
-        self.pending_addrs.append((address, a_id))
+    def add_address(self, address, o_id):
+        self.pending_addrs.append((address, o_id))
 
     def write_block_files(self, path):
-
-        debug = self.chain.logger.debug
-        
         b = Path(path) / Path(self.hash[-2]) / Path(self.hash[-1])
         b.mkdir(parents=True, exist_ok=True)
-        debug(f"Writing {self.BT.nvals} BT vals for {self.number}.")
         BTf = b / Path(f"{self.number}_{self.hash}_BT.ssb")
-
-        debug(f"Writing {self.IT.nvals} IT vals for {self.number}.")
         ITf = b / Path(f"{self.number}_{self.hash}_IT.ssb")
-
-        debug(f"Writing {self.TO.nvals} TO vals for {self.number}.")
         TOf = b / Path(f"{self.number}_{self.hash}_TO.ssb")
 
         self.BT.to_binfile(bytes(BTf))

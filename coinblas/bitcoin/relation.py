@@ -1,4 +1,3 @@
-
 from coinblas.util import (
     btc,
     curse,
@@ -25,12 +24,12 @@ class Relation:
     @query
     def address(self, curs):
         """
-        SELECT a_address from bitcoin.address where a_id = {self.id}
+        SELECT o_address from bitcoin.output where o_id = {self.id}
         """
         from .address import Address
 
         if self.coinbase:
-            return Address(self.chain, 'coinbase')
+            return Address(self.chain, "coinbase")
         r = curs.fetchone()
         if r is None:
             return
@@ -57,12 +56,13 @@ class Relation:
         return f"<{self.__class__.__name__}: {self.address} value: {btc(self.value)}>"
 
 
-
 class Spend(Relation):
     pass
 
+
 class Exposure(Relation):
     pass
+
 
 class Parent(Relation):
     pass

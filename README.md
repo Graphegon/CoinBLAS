@@ -2,23 +2,30 @@
 ![Logo](./docs/Logo.png)
 
 Bitcoin present a particularly stubborn graph analysis problem:
-transactions can have many inputs and outputs, both of which can be
-created at will by the network's users.  Starting from one output and
-traversing the graph can explode the number of nodes that need to be
-visited in order to search across the blockchain.  Following the flow
-of value can be tricky when you consider that money can go flow back
-and forth between two addresses.
+transactions can have many inputs and outputs, all of which can be
+created at will by the network's users forming a very large sparse
+[Hypergraph](https://en.wikipedia.org/wiki/Hypergraph).
 
-CoinBLAS Community Edition is a Graph Linear Algebra analysis platform
-for bitcoin that uses the GraphBLAS graph API via the pygraphblas
-Python binding. If you have enough RAM, Google BigQuery budget, cores
-and time you can load all of bitcoin history into in-memory graphs and
-do full-graph, full-flow analysis using the GraphBLAS API.
+The Bitcoin hypergraph has extremely high [Graph
+Diameter](https://en.wikipedia.org/wiki/Distance_(graph_theory)) that
+likely approaches the number of blocks in the chain.  Value can flow
+forward in time through many, many transactions on its way from one
+address to another, and each transaction along the way can branch into
+many sub-paths.  Starting from one output and traversing the graph
+explodes the number of nodes visited in order to search across the
+blockchain.
+
+**Graphegon CoinBLAS Community Edition** is a Graph Linear Algebra
+analysis platform for bitcoin that uses the GraphBLAS graph API as a
+foundation for analyzing and solving graph problems over the bitcoin
+hypergraph. If you have enough RAM, Google BigQuery budget, cores and
+time you can load all of bitcoin history into in-memory graphs and do
+full-graph, full-flow analysis using the GraphBLAS API.
 
 ![The entire blockchain in RAM](./docs/RAM.png)
 
-Loading the full blockchain graph takes up to 512GB of memory and $500
-worth of BigQuery cost, so that's probably out of most people's
+Loading the full blockchain graph takes up to 512GB of memory and
+$1000 worth of BigQuery cost, so that's probably out of most people's
 budgets.  Thankfully, CoinBLAS can load a month's worth of graph data
 at a time, costing only a few dollars per data-month.  Current memory
 requirements to load all of November 2020 is 16GB of RAM, easily done
@@ -28,10 +35,10 @@ on relatively modest laptop hardware.
 
 The next couple of sections serve as an introduction to Graph
 algorithms with Linear Algebra that are used by CoinBLAS.  The core
-concept of the GraphBLAS is that dualism that a graph can construct a
-matrix, and a matrix can construct a graph.  This mathematical
+concept of the GraphBLAS is the dualism that a graph can represent a
+matrix, and a matrix can represent a graph.  This mathematical
 communion allows the power of Linear Algebra to be used to analyze and
-manipulate graphs.  In the case of CoinBLAS the flow of bitcoin
+manipulate graphs.  In the case of CoinBLAS, the flow of bitcoin
 through transactions from one address to another.
 
 ![Graph Adjacency Matrix](./docs/Adjacency.png)
@@ -47,15 +54,16 @@ Adjacency matrices however can only encode simple directed and
 undirected graphs between similar kinds of things.  The bitcoin graph
 however is a many to many combinations of inputs and outputs to
 transactions, the inputs being the outputs of previous transactions.
-No worry, Linear Algebra's got you there, the concept of a
-[Hypergraph](https://en.wikipedia.org/wiki/Hypergraph) can be
+Insead, a Bitcoin hypergraph can be
 constructed using two [Incidence
 Matrices](https://en.wikipedia.org/wiki/Incidence_matrix)
 
 ![Projecting Adjacency from Incidence Matrices](./docs/Incidence.png)
 
-Incidence matrices can be *projected* to an adjacency matrix using,
-you guessed it, Matrix Multiplication:
+Incidence however now requires two steps to get from sender to
+recevier, but no worries, to recover Adjacency, Incidence matrices can
+be *projected* to an adjacency matrix using, you guessed it, Matrix
+Multiplication:
 
 ![Projecting Adjacency from Incidence Matrices](./docs/Projection.png)
 
@@ -95,11 +103,12 @@ In a sense, this turns a GraphBLAS matrix into an [Associative
 Array](https://en.wikipedia.org/wiki/Associative_array) which was by
 design, of course.
 
-Now, by encoding the block, transaction index, and output index into
-the index, CoinBLAS stores graphs in a linear fashion, new blocks are
-always appended onto the "end" of the matrix.  Each block is a 2**32
-"space" to fill with transactions and outputs, whose ids are always
-between the start of the current block and the start of the next.
+Now, by encoding the block number, transaction index, and output index
+into the key used to store elements, CoinBLAS stores graphs in a
+linear fashion, new blocks are always appended onto the "end" of the
+matrix.  Each block is a 2**32 "space" to fill with transactions and
+outputs, whose ids are always between the start of the current block
+and the start of the next.
 
 ![Input Output Adjacency projection](./docs/Blocktime.png)
 
@@ -113,11 +122,12 @@ other:
 
 ![Block Incidence Flow](./docs/TxFlow.png)
 
-Matrix multiplying `IT` and `TO` projects the adjacency matrix `IO`.
-The values in the projection depend on the semiring being used.  In
-this case, `PLUS_MIN` is used to take the minimum value between any
-two input/output pairs of a transaction.  This gives the flow of
-*exposure* from one address to another.
+Matrix multiplying `IT` (Input/Transaction) and `TO`
+(Transaction/Output) projects the adjacency matrix `IO`
+(Input/Output).  The values in the projection depend on the semiring
+being used.  In this case, `PLUS_MIN` is used to take the minimum
+value between any two input/output pairs of a transaction.  This gives
+the flow of *exposure* from one address to another.
 
 To give an idea of how the semiring works, consider a multi-party flow
 show below.
@@ -207,5 +217,3 @@ Iterating a block iterates over the transactions in the block:
 	143
 	>>> t1 = list(chain.blocks[278000])[0]
 	
-
-

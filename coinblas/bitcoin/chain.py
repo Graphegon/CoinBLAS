@@ -37,7 +37,8 @@ POOL_SIZE = 8
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)
 
-class Blockchain:
+
+class Chain:
     def __init__(self, dsn, block_path, pool_size=POOL_SIZE, logger=logger):
         self.chain = self
         self.dsn = dsn
@@ -100,7 +101,7 @@ class Blockchain:
                 execute_values(
                     curs,
                     """
-        INSERT INTO bitcoin.block 
+        INSERT INTO bitcoin.base_block 
             (b_number, b_hash, b_timestamp, b_timestamp_month)
         VALUES %s
                     """,
@@ -113,7 +114,7 @@ class Blockchain:
     def load_blocktime(self, curs):
         """
         SELECT b_number, b_hash
-        FROM bitcoin.imported_block
+        FROM bitcoin.block
         WHERE b_timestamp <@ tstzrange(%s, %s)
         """
         self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
@@ -123,7 +124,7 @@ class Blockchain:
     def load_blockspan(self, curs):
         """
         SELECT b_number, b_hash
-        FROM bitcoin.imported_block
+        FROM bitcoin.block
         WHERE b_number <@ int4range(%s, %s + 1)
         """
         self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
@@ -139,17 +140,39 @@ class Blockchain:
                 )
                 months = [x[0] for x in curs.fetchall()]
         if self.pool_size == 1:
-            result = list(map(self.import_graph_month, months))
+            result = list(map(self.import_month, months))
         else:
             pool = Pool(self.pool_size)
-            result = list(pool.map(self.import_graph_month, months, 1))
+            result = list(pool.map(self.import_month, months, 1))
 
         return result
 
+    @curse
+    def create_month(self, curs, month):
+        self.logger.debug(f"Creating partitions for {month}")
+        curs.execute(f"CALL bitcoin.create_month('{month}')")
+
+    @curse
+    def index_and_attach(self, curs, month):
+        self.logger.debug(f"Indexing and attaching partitions for {month}")
+        curs.execute(f"CALL bitcoin.index_and_attach('{month}')")
+
+    @curse
+    @query
+    def check_block_import(self, curs):
+        """
+        SELECT EXISTS (
+            SELECT 1 FROM bitcoin.block WHERE b_number = %s
+        )
+        """
+        return curs.fetchone() is not None
+
     # @retry(stop=stop_after_attempt(3))
-    def import_graph_month(self, month):
+    def import_month(self, month):
         tic = time()
         client = bigquery.Client()
+
+        self.create_month(month)
 
         self.logger.info(f"Loading {month}")
         query = f"""
@@ -184,25 +207,17 @@ class Blockchain:
         WHERE t.block_timestamp_month = '{month}'
         ORDER BY t.block_number, t.`hash`, i.index, o.index
         """
-        with pg.connect(self.dsn) as conn:
-            for bn, group in groupby(client.query(query), lambda r: r["b_number"]):
-                with conn.cursor() as curs:
-                    curs.execute(
-                        """
-                        SELECT EXISTS (
-                        SELECT b_imported_at
-                        FROM bitcoin.block 
-                        WHERE b_imported_at IS NOT null AND b_number = %s)
-                        """,
-                        (bn,),
-                    )
-                    if curs.fetchone()[0]:
-                        self.logger.debug(f"Block {bn} already done.")
-                        continue
-                    self.build_block_graph(curs, group, bn)
-            self.logger.info(f"Took {(time() - tic)/60.0} minutes for {month}")
+        for bn, group in groupby(client.query(query), lambda r: r["b_number"]):
+            if self.check_block_import(bn):
+                self.logger.debug(f"Block {bn} already done.")
+                continue
+            self.build_block_graph(group, bn, month)
 
-    def build_block_graph(self, curs, group, bn):
+        self.index_and_attach(month)
+
+        self.logger.info(f"Took {(time() - tic)/60.0} minutes for {month}")
+
+    def build_block_graph(self, group, bn, month):
 
         inputs = set()
         outputs = set()
@@ -239,11 +254,11 @@ class Blockchain:
                 tx.add_output(Spend(self, o_id, t.o_value))
                 outputs.add(t.o_index)
 
-        self.logger.debug(f"Took {time()-tic:.4f} to parse block {block.number}.")
-        tic = time()
-        block.finalize()
+        block.finalize(month)
         self.conn.commit()
-        self.logger.debug(f"matrix block {block.number} write took {time()-tic:.4f}")
+        self.logger.debug(
+            f"Block {block.number}: wrote "
+            f"{block.tx_vector.size} transactions in {time()-tic:.4f}")
 
     def merge_all_blocks(self, suffix):
         if self.pool_size == 1:

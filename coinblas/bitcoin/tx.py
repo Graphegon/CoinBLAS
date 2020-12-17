@@ -1,4 +1,3 @@
-
 from coinblas.util import (
     btc,
     curse,
@@ -89,8 +88,6 @@ class Tx:
                 print("    ", i)
                 if i.spent_vector:
                     print(f"        from {i.tx.hash} in block {i.tx.block_number}")
-                else:
-                    print(f"        from unknown in block {get_block_number(i.id)}")
         print("  Outputs")
         for o in outputs:
             if o.address is None:
@@ -99,8 +96,6 @@ class Tx:
             print("    ", o)
             if o.spent_vector:
                 print(f"        to {o.spent.hash} in block {o.spent.block_number}")
-            else:
-                print(f"        to unknown in block {get_block_number(o.id)}")
 
     def __repr__(self):
         return f"<Tx: {self.hash}>"
