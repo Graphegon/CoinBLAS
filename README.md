@@ -15,12 +15,14 @@ many sub-paths.  Starting from one output and traversing the graph
 explodes the number of nodes visited in order to search across the
 blockchain.
 
-**Graphegon CoinBLAS Community Edition** is a Graph Linear Algebra
-analysis platform for bitcoin that uses the GraphBLAS graph API as a
-foundation for analyzing and solving graph problems over the bitcoin
-hypergraph. If you have enough RAM, Google BigQuery budget, cores and
-time you can load all of bitcoin history into in-memory graphs and do
-full-graph, full-flow analysis using the GraphBLAS API.
+**Graphegon CoinBLAS Community Edition** is a Graph [Linear
+Algebra](https://en.wikipedia.org/wiki/Linear_algebra) analysis
+platform for bitcoin that uses the [GraphBLAS](https://graphblas.org)
+graph API as a foundation for analyzing and solving graph problems
+over the bitcoin hypergraph. If you have enough RAM, Google BigQuery
+budget, cores and time you can load all of bitcoin history into
+in-memory graphs and do full-graph, full-flow analysis using simple,
+high level algebraic syntax.
 
 ![The entire blockchain in RAM](./docs/RAM.png)
 
@@ -37,21 +39,35 @@ database, and then use map-reduce ETL frameworks to load, process, and
 reduce.  This kind of large scale deployment is very complex, and
 suffers from the typical distributed graph problem: Local data access
 is fast and consistent, on the order of nanoseconds, but remote data
-access can be a million times slower on the order of hundreds of
-milliseconds with much higher variation.
+access can be a 100,000 times slower with much higher variation.  
+
+When a "step" in graph can go to literally many of any other vertices
+in the graph, there is simply no "best" partitioning strategy.  If you
+replicate every vertex to one database node, then you suffer heavy
+"shuffling" whenever you take a step, this is slow and it gets slower
+as the cluster grows.  Replicating to more nodes means more storage,
+this is faster, but more expensive and gets even more expensive as the
+cluster grows.  Distributed graph databases are always a lose-lose
+scenario.  Your goal is to minimize your losses.
 
 Neither CoinBLAS nor the GraphBLAS API are a magic bullet that makes
-graph problems suddenly tractable.  Work is work, and traversing
-millions of nodes is a lot of work.  The GraphBLAS sidesteps the whole
+graph problems suddenly more tractable.  Work is work, and traversing
+millions of nodes is a lot of work.  CoinBLAS sidesteps the whole
 distributed database problem by simply storing the entire graph in
-memory.  However The CoinBLAS approach has a number of distinct
-advantages:
+memory.  This is certainly expensive, but more expensive than a
+database cluster?  Add up all the RAM on all the nodes, how much are
+you paying per GB for slow performance, and how much are you willing
+to pay for "always local" access?
+
+The CoinBLAS approach has a number of distinct advantages:
 
 	- Linear Algebra is a powerful mathematical abstraction over graphs.
 
 	- Extremely efficient hypersparse graph multiplication.
 
     - The same code can run on laptop or multi-GPU supercomputer.
+	
+	- Integrated Jupyter Notebook server, get started immediately.
 	
 	- Python allows fast, ad-hoc queries and integration with many 3rd party tools.
 	
