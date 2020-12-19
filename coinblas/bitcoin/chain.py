@@ -3,6 +3,7 @@ from multiprocessing.pool import Pool, ThreadPool
 from itertools import repeat, groupby
 from time import time
 from functools import reduce
+from operator import itemgetter
 import logging
 
 import psycopg2 as pg
@@ -25,6 +26,7 @@ from coinblas.util import (
     query,
     maximal_matrix,
     lazy,
+    Object,
 )
 
 from .block import Block
@@ -76,7 +78,7 @@ class Chain:
         with semiring.PLUS_PLUS:
             return self.IT.T @ self.TO.T
 
-    def addr(self, a):
+    def address(self, a):
         return Address(self, a)
 
     @curse
@@ -85,7 +87,8 @@ class Chain:
         t_id = curs.fetchone()[0]
         return Tx(self, t_id)
 
-    def initialize_blocks(self):
+    @curse
+    def initialize_blocks(self, curs):
         tic = time()
         self.logger.info("Running BigQuery for blocks.")
         client = bigquery.Client()
@@ -96,18 +99,15 @@ class Chain:
         """
         bq_blocks = list(client.query(query))
         self.logger.info(f"Initializing {len(bq_blocks)} blocks.")
-        with pg.connect(self.dsn) as conn:
-            with conn.cursor() as curs:
-                execute_values(
-                    curs,
-                    """
-        INSERT INTO bitcoin.base_block 
+        curs.executemany(
+            """
+            INSERT INTO bitcoin.base_block 
             (b_number, b_hash, b_timestamp, b_timestamp_month)
-        VALUES %s
-                    """,
-                    bq_blocks,
-                )
-            conn.commit()
+            VALUES (%(number)s, %(hash)s, %(timestamp)s, %(timestamp_month)s)
+            """,
+            bq_blocks,
+        )
+        self.conn.commit()
 
     @curse
     @query
@@ -175,6 +175,7 @@ class Chain:
         self.create_month(month)
 
         self.logger.info(f"Loading {month}")
+        
         query = f"""
         WITH TIDS AS (
             SELECT 
@@ -196,6 +197,7 @@ class Chain:
             t.`hash` as t_hash,
             spents.t_id as i_spent_tid,
             i.spent_output_index as i_spent_index,
+            i.addresses as i_addresses,
             i.value as i_value,
             i.index as i_index,
             o.index as o_index,
@@ -207,7 +209,7 @@ class Chain:
         WHERE t.block_timestamp_month = '{month}'
         ORDER BY t.block_number, t.`hash`, i.index, o.index
         """
-        for bn, group in groupby(client.query(query), lambda r: r["b_number"]):
+        for bn, group in groupby(client.query(query), itemgetter('b_number')):
             if self.check_block_import(bn):
                 self.logger.debug(f"Block {bn} already done.")
                 continue
@@ -225,7 +227,7 @@ class Chain:
         block = None
         tic = time()
 
-        for t in group:
+        for t in map(Object, group):
 
             if block is None:
                 block = Block(self, t.b_number, t.b_hash)
@@ -270,27 +272,32 @@ class Chain:
 
         blocks = list(
             grouper(
-                zip(((b.hash, b.number) for b in self.blocks.values()), repeat(suffix)),
-                2,
-                None,
-            )
+                zip(((b.hash, b.number)
+                     for b in self.blocks.values()),
+                    repeat(suffix)),
+                2, None)
         )
         self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
         while len(blocks) > 1:
-            blocks = list(grouper(mapper(self.merge_block_pair, blocks), 2, None))
+            blocks = list(
+                grouper(
+                    mapper(self.merge_block_pair, blocks),
+                    2, None)
+            )
         return self.merge_block_pair(blocks[0])
 
     def merge_block_pair(self, pair):
         left, right = pair
         if left and not isinstance(left, Matrix):
             (bhash, bn), suffix = left
-            sf = self.block_path / bhash[-2] / bhash[-1] / f"{bn}_{bhash}_{suffix}.ssb"
+            prefix = self.block_path / bhash[-2] / bhash[-1]
+            sf = prefix / f"{bn}_{bhash}_{suffix}.ssb"
             if not sf.exists():
                 return right
             left = Matrix.from_binfile(bytes(sf))
         if right and not isinstance(right, Matrix):
             (bhash, bn), suffix = right
-            rf = self.block_path / bhash[-2] / bhash[-1] / f"{bn}_{bhash}_{suffix}.ssb"
+            rf = prefix / f"{bn}_{bhash}_{suffix}.ssb"
             if not rf.exists():
                 return left
             right = Matrix.from_binfile(bytes(rf))
@@ -341,4 +348,5 @@ Total value input {btc(in_val)} output {btc(out_val)}
     def __repr__(self):
         min_block = reduce(min, self.blocks.keys())
         max_block = reduce(max, self.blocks.keys())
-        return f"<Bitcoin chain of {len(self.blocks)} blocks between {min_block} and {max_block}>"
+        return (f"<Bitcoin chain of {len(self.blocks)} blocks "
+                f"between {min_block} and {max_block}>")

@@ -3,3 +3,8 @@ psycopg2-binary
 tenacity
 jupyter
 lazy-property
+pytest
+pytest-mock
+pytest-datadir
+pytest-postgresql
+

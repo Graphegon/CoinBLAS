@@ -16,6 +16,7 @@ services:
     build: .
     volumes:
       - .:/home/jovyan/coinblas
+      - ./dbinit:/docker-entrypoint-initdb.d/
     environment:
       COINBLAS_DB: "host=db dbname=coinblas user=postgres password=postgres"
       COINBLAS_PATH: /home/jovyan/coinblas/database-blocks

@@ -1,5 +1,5 @@
-CREATE DATABASE coinblas;
-\c coinblas
+-- CREATE DATABASE coinblas;
+-- \c coinblas
 
 BEGIN;
 
@@ -59,26 +59,34 @@ CREATE INDEX base_tx_b_number
     USING brin(((t_id >> 32)::integer))
     WITH (pages_per_range = 32, autosummarize = on);
 
+-- Address
+
+CREATE TABLE bitcoin.address(
+    a_id bigserial PRIMARY KEY,
+    a_address TEXT NOT NULL
+    );
+
+CREATE INDEX ON bitcoin.address
+    USING btree(a_address);
+
 -- Output
 
 CREATE TABLE bitcoin.base_output(
        o_id bigint,
-       o_address TEXT NOT NULL
+       a_id bigint REFERENCES bitcoin.address (a_id)
        ) PARTITION BY RANGE (o_id);
 
 ALTER TABLE bitcoin.base_output
         ALTER COLUMN o_id SET STATISTICS 1000;
-
-ALTER TABLE bitcoin.base_output
-    ALTER COLUMN o_address SET STORAGE plain;
 
 CREATE INDEX base_output_o_id
     ON ONLY bitcoin.base_output
     USING brin(o_id)
     WITH (pages_per_range = 32, autosummarize = on);
 
-CREATE INDEX base_output_o_address
-    ON ONLY bitcoin.base_output (o_address);
+CREATE INDEX base_output_a_id
+    ON ONLY bitcoin.base_output
+    USING btree(a_id);
 
 CREATE INDEX base_output_b_number
     ON ONLY bitcoin.base_output
@@ -92,8 +100,8 @@ CREATE INDEX base_output_t_id
 
 CREATE VIEW bitcoin.output AS
     SELECT
-        o_address,
         o_id,
+        a_id,
         (o_id >> 16) << 16 AS t_id,
         (o_id >> 32)::integer AS b_number
     FROM bitcoin.base_output;
@@ -171,9 +179,9 @@ BEGIN
 
         -- Output indexing
 
-        CREATE INDEX "base_output_%1$s_o_address"
+        CREATE INDEX "base_output_%1$s_a_id"
             ON bitcoin."base_output_%1$s"
-            USING btree(o_address);
+            USING btree(a_id);
 
         CREATE INDEX "base_output_%1$s_o_id"
             ON bitcoin."base_output_%1$s"
@@ -209,8 +217,8 @@ BEGIN
         ALTER INDEX bitcoin.base_output_o_id
             ATTACH PARTITION bitcoin."base_output_%1$s_o_id";
 
-        ALTER INDEX bitcoin.base_output_o_address
-            ATTACH PARTITION bitcoin."base_output_%1$s_o_address";
+        ALTER INDEX bitcoin.base_output_a_id
+            ATTACH PARTITION bitcoin."base_output_%1$s_a_id";
 
         ALTER INDEX bitcoin.base_output_b_number
             ATTACH PARTITION bitcoin."base_output_%1$s_b_number";

@@ -102,7 +102,7 @@ class Block:
         execute_values(
             curs,
             f"""
-            INSERT INTO bitcoin."base_output_{month}" (o_address, o_id) VALUES %s
+            INSERT INTO bitcoin."base_output_{month}" (o_id, a_id) VALUES %s
             """,
             self.pending_addrs,
         )
