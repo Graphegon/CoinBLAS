@@ -129,6 +129,16 @@ class Chain:
         """
         self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
 
+    @curse
+    @query
+    def load_blockmonth(self, curs):
+        """
+        SELECT b_number, b_hash
+        FROM bitcoin.block
+        WHERE b_timestamp_month = %s
+        """
+        self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
+
     def import_blocktime(self, start, end):
         with pg.connect(self.dsn) as conn:
             with conn.cursor() as curs:
@@ -159,7 +169,7 @@ class Chain:
 
     @curse
     @query
-    def check_block_import(self, curs):
+    def check_block_imported(self, curs):
         """
         SELECT EXISTS (
             SELECT 1 FROM bitcoin.block WHERE b_number = %s
@@ -175,7 +185,7 @@ class Chain:
         self.create_month(month)
 
         self.logger.info(f"Loading {month}")
-        
+
         query = f"""
         WITH TIDS AS (
             SELECT 
@@ -209,21 +219,21 @@ class Chain:
         WHERE t.block_timestamp_month = '{month}'
         ORDER BY t.block_number, t.`hash`, i.index, o.index
         """
-        for bn, group in groupby(client.query(query), itemgetter('b_number')):
-            if self.check_block_import(bn):
+        for bn, group in groupby(client.query(query), itemgetter("b_number")):
+            if self.check_block_imported(bn):
                 self.logger.debug(f"Block {bn} already done.")
                 continue
             self.build_block_graph(group, bn, month)
 
         self.index_and_attach(month)
-
+        self.conn.commit()
         self.logger.info(f"Took {(time() - tic)/60.0} minutes for {month}")
 
     def build_block_graph(self, group, bn, month):
 
-        inputs = set()
-        outputs = set()
-        t_hash = None
+        t_id = None
+        i_id = None
+        o_id = None
         block = None
         tic = time()
 
@@ -232,36 +242,33 @@ class Chain:
             if block is None:
                 block = Block(self, t.b_number, t.b_hash)
 
-            if t_hash != t.t_hash:
-                inputs.clear()
-                outputs.clear()
+            if t_id != t.t_id:
                 tx = Tx(self, t.t_id, t.t_hash, block)
-                block.add_tx(tx)
+                block.pending_txs[t.t_id] = tx
 
-            t_hash = t.t_hash
+            t_id = t.t_id
 
             if t.i_index is None:
-                tx.add_input(Spend(self, block.id, 0))
+                tx.pending_inputs[block.id] = 0
 
-            elif t.i_index not in inputs:
-                spent_tx_id = t.i_spent_tid
-                i_id = spent_tx_id + t.i_spent_index
-                tx.add_input(Spend(self, i_id, t.i_value))
-                inputs.add(t.i_index)
+            spent_tx_id = t.i_spent_tid
+            i_id = spent_tx_id + t.i_spent_index if spent_tx_id else None
 
-            if t.o_index not in outputs:
-                o_id = tx.id + t.o_index
+            if i_id and i_id not in tx.pending_inputs:
+                tx.pending_inputs[i_id] = t.i_value
+                for i_address in t.i_addresses:
+                    tx.pending_input_addresses[i_address] = i_id
+
+            o_id = tx.id + t.o_index if t.o_index else None
+            if o_id and o_id not in tx.pending_outputs:
+                tx.pending_outputs[o_id] = t.o_value
                 for o_address in t.o_addresses:
-                    block.add_address(o_address, o_id)
-                tx.add_output(Spend(self, o_id, t.o_value))
-                outputs.add(t.o_index)
+                    tx.pending_output_addresses[o_address] = o_id
 
         block.finalize(month)
+
         self.conn.commit()
-        self.logger.debug(
-            f"Block {block.number}: wrote "
-            f"{block.tx_vector.size} transactions in {time()-tic:.4f}"
-        )
+        self.logger.debug(f"Wrote block {block.number} in {time()-tic:.4f}")
 
     def merge_all_blocks(self, suffix):
         if self.pool_size == 1:
@@ -272,18 +279,14 @@ class Chain:
 
         blocks = list(
             grouper(
-                zip(((b.hash, b.number)
-                     for b in self.blocks.values()),
-                    repeat(suffix)),
-                2, None)
+                zip(((b.hash, b.number) for b in self.blocks.values()), repeat(suffix)),
+                2,
+                None,
+            )
         )
         self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
         while len(blocks) > 1:
-            blocks = list(
-                grouper(
-                    mapper(self.merge_block_pair, blocks),
-                    2, None)
-            )
+            blocks = list(grouper(mapper(self.merge_block_pair, blocks), 2, None))
         return self.merge_block_pair(blocks[0])
 
     def merge_block_pair(self, pair):
@@ -348,5 +351,7 @@ Total value input {btc(in_val)} output {btc(out_val)}
     def __repr__(self):
         min_block = reduce(min, self.blocks.keys())
         max_block = reduce(max, self.blocks.keys())
-        return (f"<Bitcoin chain of {len(self.blocks)} blocks "
-                f"between {min_block} and {max_block}>")
+        return (
+            f"<Bitcoin chain of {len(self.blocks)} blocks "
+            f"between {min_block} and {max_block}>"
+        )

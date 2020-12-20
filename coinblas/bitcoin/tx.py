@@ -19,6 +19,11 @@ class Tx:
         if block is not None:
             self.block = block
 
+        self.pending_inputs = {}
+        self.pending_outputs = {}
+        self.pending_input_addresses = {}
+        self.pending_output_addresses = {}
+
     @lazy
     @curse
     @query
@@ -28,11 +33,11 @@ class Tx:
         """
         return curs.fetchone()[0]
 
-    @lazy
+    @property
     def block_number(self):
         return get_block_number(self.id)
 
-    @lazy
+    @property
     def block_id(self):
         return get_block_id(self.id)
 
@@ -42,11 +47,11 @@ class Tx:
 
         return Block(self.chain, self.block_number)
 
-    @lazy
+    @property
     def input_vector(self):
         return self.chain.IT[:, self.id]
 
-    @lazy
+    @property
     def output_vector(self):
         return self.chain.TO[self.id, :]
 
@@ -59,15 +64,6 @@ class Tx:
     def outputs(self):
         for i, v in self.output_vector:
             yield Spend(self.chain, i, v)
-
-    def add_output(self, spend):
-        self.block.TO[self.id, spend.id] = spend.value
-
-        old = self.block.BT.get(self.block.id, self.id, 0)
-        self.block.BT[self.block.id, self.id] = old + spend.value
-
-    def add_input(self, spend):
-        self.block.IT[spend.id, self.id] = spend.value
 
     @curse
     def summary(self, curs):

@@ -32,8 +32,8 @@ class Address:
     @query
     def spend_ids(self, curs):
         """
-        SELECT o_id FROM bitcoin.output 
-        JOIN bitcoin.address ON a_id 
+        SELECT o_id FROM bitcoin.output
+        JOIN bitcoin.address ON a_id
         WHERE a_address '{self.address}')
         """
         return [i[0] for i in curs.fetchall()]

@@ -1,3 +1,4 @@
+from itertools import chain
 from pathlib import Path
 from psycopg2.extras import execute_values
 
@@ -19,6 +20,7 @@ class Block:
         self.number = number
         if hash is not None:
             self.hash = hash
+        self.pending_txs = {}
 
     @classmethod
     def from_id(cls, chain, id):
@@ -31,23 +33,28 @@ class Block:
         return b
 
     @lazy
-    def pending_txs(self):
-        return []
-
-    @lazy
-    def pending_addrs(self):
-        return []
-
-    @lazy
     def BT(self):
+        """ Incidence Matrix from Block id rows to Transaction id columns. """
         return maximal_matrix(UINT64)
 
     @lazy
     def IT(self):
+        """ Incidence Matrix from Input id rows to Transaction id columns. """
         return maximal_matrix(UINT64)
 
     @lazy
     def TO(self):
+        """ Incidence Matrix from Transaction id rows to Output id columns. """
+        return maximal_matrix(UINT64)
+
+    @lazy
+    def SI(self):
+        """ Incidence Matrix from Sender Address id rows to Input id columns. """
+        return maximal_matrix(UINT64)
+
+    @lazy
+    def OR(self):
+        """ Incidence Matrix from Output id rows to Receiver Address id columns. """
         return maximal_matrix(UINT64)
 
     @lazy
@@ -85,45 +92,71 @@ class Block:
         )
 
     @curse
-    @query
     def finalize(self, curs, month):
-        """
-        UPDATE bitcoin.base_block SET b_imported_at = now()
-        WHERE b_number = {self.number}
-        """
         month = str(month).replace("-", "_")
+
+        # self.block.IT[i_id, self.id] = value
+
+        # self.block.TO[self.id, o_id] = value
+        # old = self.block.BT.get(self.block.id, self.id, 0)
+        # self.block.BT[self.block.id, self.id] = old + spend.value
+
+        addrs = []
+        for tx in self.pending_txs.values():
+            for i, v in tx.pending_inputs.items():
+                self.IT[i, tx.id] = v
+            for o, v in tx.pending_outputs.items():
+                t_id = tx.id
+                self.TO[t_id, o] = v
+                blockout = self.BT.get(self.id, t_id, 0)
+                self.BT[self.id, t_id] = blockout + v
+            a = list(
+                chain(
+                    ((k, v, "i") for k, v in tx.pending_input_addresses.items()),
+                    ((k, v, "o") for k, v in tx.pending_output_addresses.items()),
+                )
+            )
+            addrs += a
+
+        execute_values(
+            curs,
+            f"""
+            WITH 
+                a_addrs (a_address, o_id, direction) AS (VALUES %s),
+                a_ids AS (
+                    INSERT INTO bitcoin.address (a_address) 
+                    SELECT a_address FROM a_addrs 
+                    ON CONFLICT DO NOTHING
+                    RETURNING a_id, a_address
+                )
+            INSERT INTO bitcoin."base_output_{month}" (o_id, a_id) 
+            SELECT a.o_id, b.a_id FROM a_addrs a JOIN a_ids b USING(a_address)
+            WHERE a.direction = 'o'
+            """,
+            addrs,
+        )
         execute_values(
             curs,
             f"""
             INSERT INTO bitcoin."base_tx_{month}" (t_id, t_hash) VALUES %s
             """,
-            self.pending_txs,
-        )
-        execute_values(
-            curs,
-            f"""
-            INSERT INTO bitcoin."base_output_{month}" (o_id, a_id) VALUES %s
-            """,
-            self.pending_addrs,
+            [(t.id, t.hash) for t in self.pending_txs.values()],
         )
         execute_values(
             curs,
             f"""
         UPDATE bitcoin.base_block 
-            SET b_addresses = s.agg
+            SET b_addresses = s.agg,
+                b_imported_at = now()
             FROM (SELECT hll_add_agg(hll_hash_bigint(v.id)) as agg 
                   FROM (VALUES %s) v(id)) s
         WHERE b_number = {self.number}
             """,
-            [(a[1],) for a in self.pending_addrs],
+            [(a[1],) for a in addrs],
         )
         self.write_block_files(self.chain.block_path)
 
-    def add_tx(self, tx):
-        self.pending_txs.append((tx.id, tx.hash))
-
-    def add_address(self, address, o_id):
-        self.pending_addrs.append((address, o_id))
+        self.pending_txs.clear()
 
     def write_block_files(self, path):
         b = Path(path) / Path(self.hash[-2]) / Path(self.hash[-1])
