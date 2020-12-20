@@ -61,19 +61,19 @@ CREATE INDEX base_tx_b_number
 
 -- Address
 
-CREATE TABLE bitcoin.address(
+CREATE TABLE bitcoin.base_address(
     a_id bigserial PRIMARY KEY,
     a_address TEXT NOT NULL
     );
 
-CREATE INDEX ON bitcoin.address
+CREATE INDEX ON bitcoin.base_address
     USING btree(a_address);
 
 -- Output
 
 CREATE TABLE bitcoin.base_output(
        o_id bigint,
-       a_id bigint REFERENCES bitcoin.address (a_id)
+       a_id bigint REFERENCES bitcoin.base_address (a_id)
        ) PARTITION BY RANGE (o_id);
 
 ALTER TABLE bitcoin.base_output
@@ -105,6 +105,19 @@ CREATE VIEW bitcoin.output AS
         (o_id >> 16) << 16 AS t_id,
         (o_id >> 32)::integer AS b_number
     FROM bitcoin.base_output;
+
+-- Address
+
+CREATE VIEW bitcoin.address AS
+    SELECT
+		a_id,
+		a_address,
+		t_id,
+		o_id,
+		output.b_number
+	FROM bitcoin.base_address
+	JOIN bitcoin.output USING (a_id)
+	JOIN bitcoin.tx USING (t_id);
 
 -- Partitioning
 

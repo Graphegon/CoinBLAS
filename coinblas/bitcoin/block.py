@@ -83,9 +83,9 @@ class Block:
     def insert(self, curs, bq):
         curs.execute(
             """
-        INSERT INTO bitcoin.base_block 
+        INSERT INTO bitcoin.base_block
             (b_number, b_hash, b_timestamp, b_timestamp_month)
-        VALUES 
+        VALUES
             (%s, %s, %s, %s)
         """,
             (self.number, self.hash, bq.timestamp, bq.timestamp_month),
@@ -94,47 +94,67 @@ class Block:
     @curse
     def finalize(self, curs, month):
         month = str(month).replace("-", "_")
+        i_addrs = []
+        o_addrs = []
 
-        # self.block.IT[i_id, self.id] = value
-
-        # self.block.TO[self.id, o_id] = value
-        # old = self.block.BT.get(self.block.id, self.id, 0)
-        # self.block.BT[self.block.id, self.id] = old + spend.value
-
-        addrs = []
         for tx in self.pending_txs.values():
             for i, v in tx.pending_inputs.items():
                 self.IT[i, tx.id] = v
+
             for o, v in tx.pending_outputs.items():
                 t_id = tx.id
                 self.TO[t_id, o] = v
                 blockout = self.BT.get(self.id, t_id, 0)
                 self.BT[self.id, t_id] = blockout + v
-            a = list(
-                chain(
-                    ((k, v, "i") for k, v in tx.pending_input_addresses.items()),
-                    ((k, v, "o") for k, v in tx.pending_output_addresses.items()),
-                )
-            )
-            addrs += a
 
-        execute_values(
+            i_addrs += [(a, i, v) for a, (i, v) in tx.pending_input_addresses.items()]
+            o_addrs += [(a, o, v) for a, (o, v) in tx.pending_output_addresses.items()]
+
+        r = execute_values(
             curs,
             f"""
-            WITH 
-                a_addrs (a_address, o_id, direction) AS (VALUES %s),
+            WITH
+                a_addrs (a_address, i_id, value) AS (VALUES %s),
                 a_ids AS (
-                    INSERT INTO bitcoin.address (a_address) 
-                    SELECT a_address FROM a_addrs 
+                    INSERT INTO bitcoin.base_address (a_address)
+                    SELECT a_address FROM a_addrs
                     ON CONFLICT DO NOTHING
                     RETURNING a_id, a_address
                 )
-            INSERT INTO bitcoin."base_output_{month}" (o_id, a_id) 
-            SELECT a.o_id, b.a_id FROM a_addrs a JOIN a_ids b USING(a_address)
-            WHERE a.direction = 'o'
+            SELECT a.a_id, i.i_id, i.value 
+            FROM a_addrs i JOIN a_ids a USING(a_address)
             """,
-            addrs,
+            i_addrs,
+            fetch=True,
         )
+        for a_id, i_id, i_value in r:
+            self.SI[a_id, i_id] = i_value
+
+        r = execute_values(
+            curs,
+            f"""
+            WITH
+                a_addrs (a_address, o_id, value) AS (VALUES %s),
+                a_ids AS (
+                    INSERT INTO bitcoin.base_address (a_address)
+                    SELECT a_address FROM a_addrs
+                    ON CONFLICT DO NOTHING
+                    RETURNING a_id, a_address
+                ),
+                write_out as (
+                    INSERT INTO bitcoin."base_output_{month}" (o_id, a_id)
+                    SELECT o.o_id, a.a_id
+                    FROM a_addrs o JOIN a_ids a USING(a_address)
+                )
+            SELECT a.a_id, o.o_id, o.value 
+            FROM a_addrs o JOIN a_ids a USING(a_address)
+            """,
+            o_addrs,
+            fetch=True,
+        )
+        for a_id, o_id, o_value in r:
+            self.OR[o_id, a_id] = o_value
+
         execute_values(
             curs,
             f"""
@@ -145,14 +165,14 @@ class Block:
         execute_values(
             curs,
             f"""
-        UPDATE bitcoin.base_block 
+        UPDATE bitcoin.base_block
             SET b_addresses = s.agg,
                 b_imported_at = now()
-            FROM (SELECT hll_add_agg(hll_hash_bigint(v.id)) as agg 
+            FROM (SELECT hll_add_agg(hll_hash_bigint(v.id)) as agg
                   FROM (VALUES %s) v(id)) s
         WHERE b_number = {self.number}
             """,
-            [(a[1],) for a in addrs],
+            [(a[1],) for a in o_addrs],
         )
         self.write_block_files(self.chain.block_path)
 

@@ -255,15 +255,17 @@ class Chain:
             i_id = spent_tx_id + t.i_spent_index if spent_tx_id else None
 
             if i_id and i_id not in tx.pending_inputs:
-                tx.pending_inputs[i_id] = t.i_value
+                i_value = t.i_value
+                tx.pending_inputs[i_id] = i_value
                 for i_address in t.i_addresses:
-                    tx.pending_input_addresses[i_address] = i_id
+                    tx.pending_input_addresses[i_address] = (i_id, i_value)
 
             o_id = tx.id + t.o_index if t.o_index else None
             if o_id and o_id not in tx.pending_outputs:
-                tx.pending_outputs[o_id] = t.o_value
+                o_value = t.o_value
+                tx.pending_outputs[o_id] = o_value
                 for o_address in t.o_addresses:
-                    tx.pending_output_addresses[o_address] = o_id
+                    tx.pending_output_addresses[o_address] = (o_id, o_value)
 
         block.finalize(month)
 

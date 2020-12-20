@@ -6,11 +6,6 @@ from pytest_postgresql import factories
 from coinblas.bitcoin import Chain, Block, Tx, Address
 
 
-class DictFake:
-    def __init__(self, d):
-        self.__dict__ = d
-
-
 postgresql_my_proc = factories.postgresql_noproc(
     host="db", user="postgres", password="postgres"
 )
