@@ -69,9 +69,22 @@ class Chain:
         return self.merge_all_blocks("TO")
 
     @lazy
+    def SI(self):
+        return self.merge_all_blocks("SI")
+
+    @lazy
+    def OR(self):
+        return self.merge_all_blocks("OR")
+
+    @lazy
     def IO(self):
         with semiring.PLUS_MIN:
             return self.IT @ self.TO
+
+    @lazy
+    def SR(self):
+        with semiring.PLUS_PLUS:
+            return self.SI @ self.OR
 
     @lazy
     def TT(self):
@@ -341,6 +354,9 @@ Blocks to Txs: {self.BT.nvals} values
 Inputs to Tx: {self.IT.nvals} values.
 Tx to Outputs: {self.TO.nvals} values.
 Inputs to Outputs: {self.IO.nvals} values.
+Senders to Inputs: {self.SI.nvals} values.
+Outputs to Receivers: {self.OR.nvals} values.
+Senders to Receivers: {self.SR.nvals} values.
 Tx to Tx: {self.TT.nvals} values.
 Blocks span {min_tx.block_number} to {max_tx.block_number}
 Earliest Transaction: {min_tx.hash}

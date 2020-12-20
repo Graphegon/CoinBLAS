@@ -184,10 +184,14 @@ class Block:
         BTf = b / Path(f"{self.number}_{self.hash}_BT.ssb")
         ITf = b / Path(f"{self.number}_{self.hash}_IT.ssb")
         TOf = b / Path(f"{self.number}_{self.hash}_TO.ssb")
+        SIf = b / Path(f"{self.number}_{self.hash}_SI.ssb")
+        ORf = b / Path(f"{self.number}_{self.hash}_OR.ssb")
 
         self.BT.to_binfile(bytes(BTf))
         self.IT.to_binfile(bytes(ITf))
         self.TO.to_binfile(bytes(TOf))
+        self.IT.to_binfile(bytes(SIf))
+        self.TO.to_binfile(bytes(ORf))
 
     def __iter__(self):
         from .tx import Tx
