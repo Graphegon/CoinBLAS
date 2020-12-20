@@ -106,7 +106,7 @@ class Chain:
         self.logger.info("Running BigQuery for blocks.")
         client = bigquery.Client()
         query = """
-        SELECT number, `hash`, timestamp, timestamp_month 
+        SELECT number, `hash`, timestamp, timestamp_month
         FROM `bigquery-public-data.crypto_bitcoin.blocks`
         ORDER BY number;
         """
@@ -114,7 +114,7 @@ class Chain:
         self.logger.info(f"Initializing {len(bq_blocks)} blocks.")
         curs.executemany(
             """
-            INSERT INTO bitcoin.base_block 
+            INSERT INTO bitcoin.base_block
             (b_number, b_hash, b_timestamp, b_timestamp_month)
             VALUES (%(number)s, %(hash)s, %(timestamp)s, %(timestamp_month)s)
             """,
@@ -201,14 +201,14 @@ class Chain:
 
         query = f"""
         WITH TIDS AS (
-            SELECT 
-                block_number, 
-                block_hash, 
-                block_timestamp, 
+            SELECT
+                block_number,
+                block_hash,
+                block_timestamp,
                 block_timestamp_month, `hash`, inputs, outputs,
-                (block_number << 32) + (ROW_NUMBER() 
+                (block_number << 32) + (ROW_NUMBER()
                     OVER(PARTITION BY block_number ORDER BY block_number, `hash`) << 16) AS t_id
-        FROM `bigquery-public-data.crypto_bitcoin.transactions` 
+        FROM `bigquery-public-data.crypto_bitcoin.transactions`
         ORDER BY block_number, `hash`)
 
         SELECT
@@ -245,8 +245,6 @@ class Chain:
     def build_block_graph(self, group, bn, month):
 
         t_id = None
-        i_id = None
-        o_id = None
         block = None
         tic = time()
 
@@ -329,18 +327,8 @@ class Chain:
         return iter(self.blocks.values())
 
     def summary(self):
-        min_tx = Tx(
-            self,
-            id=self.IT.T.reduce_vector()
-            .apply(unaryop.POSITIONI_INT64)
-            .reduce_int(monoid.MIN_MONOID),
-        )
-        max_tx = Tx(
-            self,
-            id=self.TO.reduce_vector()
-            .apply(unaryop.POSITIONI_INT64)
-            .reduce_int(monoid.MAX_MONOID),
-        )
+        min_tx = Tx(self, id=self.min_tx_id)
+        max_tx = Tx(self, id=self.max_tx_id)
 
         min_time = min_tx.block.timestamp.ctime()
         max_time = max_tx.block.timestamp.ctime()
@@ -349,21 +337,54 @@ class Chain:
         out_val = self.TO.reduce_int()
 
         print(
-            f"""\
-Blocks to Txs: {self.BT.nvals} values
-Inputs to Tx: {self.IT.nvals} values.
-Tx to Outputs: {self.TO.nvals} values.
-Inputs to Outputs: {self.IO.nvals} values.
-Senders to Inputs: {self.SI.nvals} values.
-Outputs to Receivers: {self.OR.nvals} values.
-Senders to Receivers: {self.SR.nvals} values.
-Tx to Tx: {self.TT.nvals} values.
-Blocks span {min_tx.block_number} to {max_tx.block_number}
-Earliest Transaction: {min_tx.hash}
-Latest Transaction: {max_tx.hash}
-Blocks time span {min_time} to {max_time}
-Total value input {btc(in_val)} output {btc(out_val)}
+            f"""
+Blocks:
+    - min: {min_tx.block_number}
+    - max: {max_tx.block_number}
+
+Transactions:
+    - earliest: {min_tx.hash}
+        - time: {min_time}
+
+    - latest: {max_tx.hash}
+        - time: {max_time}
+
+Total value:
+    - in: {btc(in_val):>12} btc.
+    - out: {btc(out_val):>12} btc.
+
+Incidence Matrices:
+    - BT: {self.BT.nvals:>12} Blocks to Txs.
+    - IT: {self.IT.nvals:>12} Inputs to Tx.
+    - TO: {self.TO.nvals:>12} Tx to Outputs.
+    - SI: {self.SI.nvals:>12} Senders to Inputs.
+    - OR: {self.OR.nvals:>12} Outputs to Receivers.
+
+Adjacencies:
+    - IO: {self.IO.nvals:>12} edges Inputs to Outputs.
+    - SR: {self.SR.nvals:>12} Senders to Receivers.
+    - TT: {self.TT.nvals:>12} Tx to Tx.
 """
+        )
+
+    @property
+    def tx_I(self):
+        return self.TO.reduce_vector().apply(unaryop.POSITIONI_INT64)
+
+    @property
+    def max_tx_id(self):
+        return self.tx_I.reduce_int(monoid.MAX_MONOID)
+
+    @property
+    def min_tx_id(self):
+        return self.tx_I.reduce_int(monoid.MIN_MONOID)
+
+    @property
+    def max_tx_id(self):
+        return (
+            self.TO.reduce_vector()
+            .apply(unaryop.POSITIONI_INT64)
+            .reduce_int(monoid.MAX_MONOID)
         )
 
     def __repr__(self):
