@@ -2,7 +2,7 @@ from itertools import chain
 from pathlib import Path
 from psycopg2.extras import execute_values
 
-from pygraphblas import UINT64
+from pygraphblas import UINT64, Matrix
 
 from coinblas.util import (
     curse,
@@ -22,40 +22,38 @@ class Block:
             self.hash = hash
         self.pending_txs = {}
 
-    @classmethod
-    def from_id(cls, chain, id):
-        return Block(chain, get_block_number(id))
-
-    @classmethod
-    def bq_insert(cls, chain, bq):
-        b = Block(chain, bq.number, bq.hash)
-        b.insert(bq)
-        return b
+    def load_block_graph(self, suffix):
+        bhash = self.hash
+        prefix = self.chain.block_path / bhash[-2] / bhash[-1]
+        datafile = prefix / f"{self.number}_{bhash}_{suffix}.ssb"
+        if not datafile.exists():
+            return maximal_matrix(UINT64)
+        return Matrix.from_binfile(bytes(datafile))
 
     @lazy
     def BT(self):
         """ Incidence Matrix from Block id rows to Transaction id columns. """
-        return maximal_matrix(UINT64)
+        return self.load_block_graph("BT")
 
     @lazy
     def IT(self):
         """ Incidence Matrix from Input id rows to Transaction id columns. """
-        return maximal_matrix(UINT64)
+        return self.load_block_graph("IT")
 
     @lazy
     def TO(self):
         """ Incidence Matrix from Transaction id rows to Output id columns. """
-        return maximal_matrix(UINT64)
+        return self.load_block_graph("TO")
 
     @lazy
     def SI(self):
         """ Incidence Matrix from Sender Address id rows to Input id columns. """
-        return maximal_matrix(UINT64)
+        return self.load_block_graph("SI")
 
     @lazy
     def OR(self):
         """ Incidence Matrix from Output id rows to Receiver Address id columns. """
-        return maximal_matrix(UINT64)
+        return self.load_block_graph("OR")
 
     @lazy
     @curse
@@ -97,12 +95,11 @@ class Block:
         i_addrs = []
         o_addrs = []
 
-        for tx in self.pending_txs.values():
+        for num, (t_id, tx) in enumerate(self.pending_txs.items()):
             for i, v in tx.pending_inputs.items():
-                self.IT[i, tx.id] = v
+                self.IT[i, t_id] = v
 
             for o, v in tx.pending_outputs.items():
-                t_id = tx.id
                 self.TO[t_id, o] = v
                 blockout = self.BT.get(self.id, t_id, 0)
                 self.BT[self.id, t_id] = blockout + v
@@ -110,49 +107,44 @@ class Block:
             i_addrs += [(a, i, v) for a, (i, v) in tx.pending_input_addresses.items()]
             o_addrs += [(a, o, v) for a, (o, v) in tx.pending_output_addresses.items()]
 
-        r = execute_values(
+        senders = execute_values(
             curs,
             f"""
             WITH
-                a_addrs (a_address, i_id, value) AS (VALUES %s),
+                i_addrs (a_address, i_id, value) AS (VALUES %s),
                 a_ids AS (
-                    INSERT INTO bitcoin.base_address (a_address)
-                    SELECT a_address FROM a_addrs
+                    INSERT INTO bitcoin.address (a_address)
+                    SELECT a_address FROM i_addrs
                     ON CONFLICT DO NOTHING
                     RETURNING a_id, a_address
                 )
             SELECT a.a_id, i.i_id, i.value 
-            FROM a_addrs i JOIN a_ids a USING(a_address)
+            FROM i_addrs i JOIN a_ids a USING(a_address)
             """,
             i_addrs,
             fetch=True,
         )
-        for a_id, i_id, i_value in r:
+        for a_id, i_id, i_value in senders:
             self.SI[a_id, i_id] = i_value
 
-        r = execute_values(
+        receivers = execute_values(
             curs,
             f"""
             WITH
-                a_addrs (a_address, o_id, value) AS (VALUES %s),
+                o_addrs (a_address, o_id, value) AS (VALUES %s),
                 a_ids AS (
-                    INSERT INTO bitcoin.base_address (a_address)
-                    SELECT a_address FROM a_addrs
+                    INSERT INTO bitcoin.address (a_address)
+                    SELECT a_address FROM o_addrs
                     ON CONFLICT DO NOTHING
                     RETURNING a_id, a_address
-                ),
-                write_out as (
-                    INSERT INTO bitcoin."base_output_{month}" (o_id, a_id)
-                    SELECT o.o_id, a.a_id
-                    FROM a_addrs o JOIN a_ids a USING(a_address)
                 )
-            SELECT a.a_id, o.o_id, o.value 
-            FROM a_addrs o JOIN a_ids a USING(a_address)
+            SELECT a.a_id, a.a_address, o.o_id, o.value 
+            FROM o_addrs o JOIN a_ids a USING(a_address)
             """,
             o_addrs,
             fetch=True,
         )
-        for a_id, o_id, o_value in r:
+        for a_id, a_address, o_id, o_value in receivers:
             self.OR[o_id, a_id] = o_value
 
         execute_values(
@@ -162,6 +154,7 @@ class Block:
             """,
             [(t.id, t.hash) for t in self.pending_txs.values()],
         )
+
         execute_values(
             curs,
             f"""
@@ -190,8 +183,8 @@ class Block:
         self.BT.to_binfile(bytes(BTf))
         self.IT.to_binfile(bytes(ITf))
         self.TO.to_binfile(bytes(TOf))
-        self.IT.to_binfile(bytes(SIf))
-        self.TO.to_binfile(bytes(ORf))
+        self.SI.to_binfile(bytes(SIf))
+        self.OR.to_binfile(bytes(ORf))
 
     def __iter__(self):
         from .tx import Tx

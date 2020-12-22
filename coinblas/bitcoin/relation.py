@@ -19,9 +19,7 @@ class Relation:
     def coinbase(self):
         return self.id == get_block_id(self.id)
 
-    @lazy
-    @curse
-    @query
+    @property
     def address(self, curs):
         """
         SELECT o_address from bitcoin.output where o_id = {self.id}
@@ -53,7 +51,7 @@ class Relation:
             return Tx(self.chain, id=self.spent_vector.to_lists()[0][0])
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}: {self.address} value: {btc(self.value)}>"
+        return f"<{self.__class__.__name__}: {self.id} value: {btc(self.value)}>"
 
 
 class Spend(Relation):

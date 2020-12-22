@@ -4,6 +4,7 @@ from itertools import repeat, groupby
 from time import time
 from functools import reduce
 from operator import itemgetter
+from collections import OrderedDict
 import logging
 
 import psycopg2 as pg
@@ -50,7 +51,11 @@ class Chain:
 
     @lazy
     def blocks(self):
-        return {}
+        return OrderedDict()
+
+    def merge_block_graphs(self, suffix):
+        with semiring.ANY_SECOND:
+            return sum(getattr(b, suffix) for b in self.blocks.values())
 
     @lazy
     def conn(self):
@@ -58,23 +63,23 @@ class Chain:
 
     @lazy
     def BT(self):
-        return self.merge_all_blocks("BT")
+        return self.merge_block_graphs("BT")
 
     @lazy
     def IT(self):
-        return self.merge_all_blocks("IT")
+        return self.merge_block_graphs("IT")
 
     @lazy
     def TO(self):
-        return self.merge_all_blocks("TO")
+        return self.merge_block_graphs("TO")
 
     @lazy
     def SI(self):
-        return self.merge_all_blocks("SI")
+        return self.merge_block_graphs("SI")
 
     @lazy
     def OR(self):
-        return self.merge_all_blocks("OR")
+        return self.merge_block_graphs("OR")
 
     @lazy
     def IO(self):
@@ -82,23 +87,48 @@ class Chain:
             return self.IT @ self.TO
 
     @lazy
+    def ST(self):
+        with semiring.PLUS_MIN:
+            return self.SI @ self.IT
+
+    @lazy
+    def TR(self):
+        with semiring.PLUS_MIN:
+            return self.TO @ self.OR
+
+    @lazy
     def SR(self):
-        with semiring.PLUS_PLUS:
-            return self.SI @ self.OR
+        with semiring.PLUS_MIN:
+            return self.ST @ self.TR
 
     @lazy
     def TT(self):
         with semiring.PLUS_PLUS:
             return self.IT.T @ self.TO.T
 
-    def address(self, a):
-        return Address(self, a)
+    def clear(self):
+        self.blocks.clear()
+        self.BT = maximal_matrix(UINT64)
+        self.IT = maximal_matrix(UINT64)
+        self.TO = maximal_matrix(UINT64)
+        self.SO = maximal_matrix(UINT64)
+        self.OR = maximal_matrix(UINT64)
+
+    @curse
+    def address(self, curs, a):
+        curs.execute(
+            "SELECT a_id, a_address " "FROM bitcoin.address where a_address = %s", (a,)
+        )
+        a_id, a_address = curs.fetchone()
+        return Address(self, a_id, a_address)
 
     @curse
     def tx(self, curs, hash):
-        curs.execute("select t_id from bitcoin.tx where t_hash = %s", (hash,))
-        t_id = curs.fetchone()[0]
-        return Tx(self, t_id)
+        curs.execute(
+            "SELECT t_id, t_hash FROM " "bitcoin.tx where t_hash = %s", (hash,)
+        )
+        t_id, t_hash = curs.fetchone()
+        return Tx(self, t_id, t_hash)
 
     @curse
     def initialize_blocks(self, curs):
@@ -129,8 +159,11 @@ class Chain:
         SELECT b_number, b_hash
         FROM bitcoin.block
         WHERE b_timestamp <@ tstzrange(%s, %s)
+        ORDER BY b_number
         """
-        self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
+        self.blocks.clear()
+        for b in curs.fetchall():
+            self.blocks[b[0]] = Block(self, b[0], b[1])
 
     @curse
     @query
@@ -139,8 +172,11 @@ class Chain:
         SELECT b_number, b_hash
         FROM bitcoin.block
         WHERE b_number <@ int4range(%s, %s + 1)
+        ORDER BY b_number
         """
-        self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
+        self.blocks.clear()
+        for b in curs.fetchall():
+            self.blocks[b[0]] = Block(self, b[0], b[1])
 
     @curse
     @query
@@ -149,8 +185,11 @@ class Chain:
         SELECT b_number, b_hash
         FROM bitcoin.block
         WHERE b_timestamp_month = %s
+        ORDER BY b_number
         """
-        self.blocks = {b[0]: Block(self, b[0], b[1]) for b in curs.fetchall()}
+        self.blocks.clear()
+        for b in curs.fetchall():
+            self.blocks[b[0]] = Block(self, b[0], b[1])
 
     def import_blocktime(self, start, end):
         with pg.connect(self.dsn) as conn:
@@ -258,21 +297,19 @@ class Chain:
                 block.pending_txs[t.t_id] = tx
 
             t_id = t.t_id
-
-            if t.i_index is None:
+            spent_tx_id = t.i_spent_tid
+            if spent_tx_id is None:
                 tx.pending_inputs[block.id] = 0
 
-            spent_tx_id = t.i_spent_tid
-            i_id = spent_tx_id + t.i_spent_index if spent_tx_id else None
-
-            if i_id and i_id not in tx.pending_inputs:
+            elif spent_tx_id + t.i_spent_index not in tx.pending_inputs:
+                i_id = spent_tx_id + t.i_spent_index
                 i_value = t.i_value
                 tx.pending_inputs[i_id] = i_value
                 for i_address in t.i_addresses:
                     tx.pending_input_addresses[i_address] = (i_id, i_value)
 
-            o_id = tx.id + t.o_index if t.o_index else None
-            if o_id and o_id not in tx.pending_outputs:
+            o_id = tx.id + t.o_index
+            if o_id not in tx.pending_outputs:
                 o_value = t.o_value
                 tx.pending_outputs[o_id] = o_value
                 for o_address in t.o_addresses:
@@ -283,45 +320,24 @@ class Chain:
         self.conn.commit()
         self.logger.debug(f"Wrote block {block.number} in {time()-tic:.4f}")
 
-    def merge_all_blocks(self, suffix):
-        if self.pool_size == 1:
-            mapper = lambda f, s: list(map(f, s))
-        else:
-            thread_pool = ThreadPool(self.pool_size)
-            mapper = lambda f, s: thread_pool.map(f, s, 1)
+        # if self.pool_size == 1:
+        #     mapper = lambda f, s: list(map(f, s))
+        # else:
+        #     thread_pool = ThreadPool(self.pool_size)
+        #     mapper = lambda f, s: thread_pool.map(f, s, 1)
 
-        blocks = list(
-            grouper(
-                zip(((b.hash, b.number) for b in self.blocks.values()), repeat(suffix)),
-                2,
-                None,
-            )
-        )
-        self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
-        while len(blocks) > 1:
-            blocks = list(grouper(mapper(self.merge_block_pair, blocks), 2, None))
-        return self.merge_block_pair(blocks[0])
-
-    def merge_block_pair(self, pair):
-        left, right = pair
-        if left and not isinstance(left, Matrix):
-            (bhash, bn), suffix = left
-            prefix = self.block_path / bhash[-2] / bhash[-1]
-            sf = prefix / f"{bn}_{bhash}_{suffix}.ssb"
-            if not sf.exists():
-                return right
-            left = Matrix.from_binfile(bytes(sf))
-        if right and not isinstance(right, Matrix):
-            (bhash, bn), suffix = right
-            rf = prefix / f"{bn}_{bhash}_{suffix}.ssb"
-            if not rf.exists():
-                return left
-            right = Matrix.from_binfile(bytes(rf))
-        if left is None:
-            return right
-        if right is None:
-            return left
-        return left + right
+        # blocks = list(
+        #     grouper(
+        #         zip(((b.hash, b.number) for b in self.blocks.values()), repeat(suffix)),
+        #         2,
+        #         None,
+        #     )
+        # )
+        # self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
+        # while len(blocks) > 1:
+        #     blocks = list(grouper(mapper(self.merge_block_pair, blocks), 2, None))
+        # breakpoint()
+        # return self.merge_block_pair(blocks[0])
 
     def __iter__(self):
         return iter(self.blocks.values())

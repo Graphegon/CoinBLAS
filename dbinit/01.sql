@@ -61,65 +61,14 @@ CREATE INDEX base_tx_b_number
 
 -- Address
 
-CREATE TABLE bitcoin.base_address(
+CREATE TABLE bitcoin.address(
     a_id bigserial PRIMARY KEY,
-    a_address TEXT NOT NULL
+    a_address TEXT UNIQUE
     );
 
-CREATE INDEX ON bitcoin.base_address
+
+CREATE INDEX ON bitcoin.address
     USING btree(a_address);
-
--- Output
-
-CREATE TABLE bitcoin.base_output(
-       o_id bigint,
-       a_id bigint REFERENCES bitcoin.base_address (a_id)
-       ) PARTITION BY RANGE (o_id);
-
-ALTER TABLE bitcoin.base_output
-        ALTER COLUMN o_id SET STATISTICS 1000;
-
-CREATE INDEX base_output_o_id
-    ON ONLY bitcoin.base_output
-    USING brin(o_id)
-    WITH (pages_per_range = 32, autosummarize = on);
-
-CREATE INDEX base_output_a_id
-    ON ONLY bitcoin.base_output
-    USING btree(a_id);
-
-CREATE INDEX base_output_b_number
-    ON ONLY bitcoin.base_output
-    USING brin(((o_id >> 32)::integer))
-    WITH (pages_per_range = 32, autosummarize = on);
-
-CREATE INDEX base_output_t_id
-    ON ONLY bitcoin.base_output
-    USING brin(((o_id >> 16) << 16))
-    WITH (pages_per_range = 32, autosummarize = on);
-
-CREATE VIEW bitcoin.output AS
-    SELECT
-        o_id,
-        a_id,
-        (o_id >> 16) << 16 AS t_id,
-        (o_id >> 32)::integer AS b_number
-    FROM bitcoin.base_output;
-
--- Address
-
-CREATE VIEW bitcoin.address AS
-    SELECT
-		a_id,
-		a_address,
-		t_id,
-		o_id,
-		output.b_number
-	FROM bitcoin.base_address
-	JOIN bitcoin.output USING (a_id)
-	JOIN bitcoin.tx USING (t_id);
-
--- Partitioning
 
 CREATE OR REPLACE PROCEDURE bitcoin.create_month(timestamp_month date)
     LANGUAGE plpgsql AS
@@ -145,13 +94,6 @@ BEGIN
         ALTER TABLE bitcoin."base_tx_%1$s"
             ADD CONSTRAINT "base_tx_%1$s_t_id_check"
             CHECK (t_id >= %2$L AND t_id < %3$L );
-
-        CREATE TABLE IF NOT EXISTS bitcoin."base_output_%1$s"
-        (LIKE bitcoin.base_output INCLUDING DEFAULTS INCLUDING CONSTRAINTS);
-
-        ALTER TABLE bitcoin."base_output_%1$s"
-            ADD CONSTRAINT "base_output_%1$s_o_id_check"
-            CHECK (o_id >= %2$L AND o_id < %3$L );
 
         $i$, name, min_id, max_id);
 END;
@@ -190,35 +132,8 @@ BEGIN
             USING brin(((t_id >> 32)::integer))
             WITH (pages_per_range = 32, autosummarize = on);
 
-        -- Output indexing
-
-        CREATE INDEX "base_output_%1$s_a_id"
-            ON bitcoin."base_output_%1$s"
-            USING btree(a_id);
-
-        CREATE INDEX "base_output_%1$s_o_id"
-            ON bitcoin."base_output_%1$s"
-            USING brin(o_id)
-            WITH (pages_per_range = 32, autosummarize = on);
-
-        CREATE INDEX "base_output_%1$s_b_number"
-            ON bitcoin."base_output_%1$s"
-            USING brin(((o_id >> 32)::integer))
-            WITH (pages_per_range = 32, autosummarize = on);
-
-        CREATE INDEX "base_output_%1$s_t_id"
-             ON bitcoin."base_output_%1$s"
-            USING brin(((o_id >> 16) << 16))
-            WITH (pages_per_range = 32, autosummarize = on);
-
-        -- Attach partitions
-
         ALTER TABLE bitcoin.base_tx
             ATTACH PARTITION bitcoin."base_tx_%1$s"
-        FOR VALUES FROM (%2$L) TO (%3$L);
-
-        ALTER TABLE bitcoin.base_output
-            ATTACH PARTITION bitcoin."base_output_%1$s"
         FOR VALUES FROM (%2$L) TO (%3$L);
 
         ALTER INDEX bitcoin.base_tx_t_hash
@@ -226,18 +141,6 @@ BEGIN
 
         ALTER INDEX bitcoin.base_tx_b_number
             ATTACH PARTITION bitcoin."base_tx_%1$s_b_number";
-
-        ALTER INDEX bitcoin.base_output_o_id
-            ATTACH PARTITION bitcoin."base_output_%1$s_o_id";
-
-        ALTER INDEX bitcoin.base_output_a_id
-            ATTACH PARTITION bitcoin."base_output_%1$s_a_id";
-
-        ALTER INDEX bitcoin.base_output_b_number
-            ATTACH PARTITION bitcoin."base_output_%1$s_b_number";
-
-        ALTER INDEX bitcoin.base_output_t_id
-            ATTACH PARTITION bitcoin."base_output_%1$s_t_id";
 
     $i$, name, min_id, max_id);
 END;

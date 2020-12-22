@@ -28,3 +28,6 @@ def test_initialize_blocks(postgresql, mocker, datadir, tmp_path):
     c.import_month("2012-01-01")
     c.load_blockmonth("2012-01-01")
     c.summary()
+    import IPython
+
+    IPython.embed()
