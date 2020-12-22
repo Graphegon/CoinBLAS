@@ -46,6 +46,19 @@ class Address:
     def received(self):
         return self.chain.OR[:, self.id]
 
+    def bfs_level(self, depth=lib.GxB_INDEX_MAX):
+        SR = self.chain.SR
+        q = maximal_vector(INT64)
+        pi = q.dup()
+        q[self.id] = self.id
+        for level in range(min(depth + 1, SR.nvals)):
+            with semiring.ANY_SECONDI_INT64:
+                q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
+            if not q:
+                break
+            pi.assign_scalar(level + 1, mask=q, desc=descriptor.S)
+        return pi
+
     def bfs_parent(self, depth=lib.GxB_INDEX_MAX):
         SR = self.chain.SR
         q = maximal_vector(INT64)

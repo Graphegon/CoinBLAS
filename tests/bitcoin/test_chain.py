@@ -1,10 +1,11 @@
+import os
 import pytest
 import pickle
 from google.cloud import bigquery
 from pytest_postgresql import factories
 
 from coinblas.bitcoin import Chain, Block, Tx, Address
-
+from pygraphblas import *
 
 postgresql_my_proc = factories.postgresql_noproc(
     host="db", user="postgres", password="postgres"
@@ -28,6 +29,7 @@ def test_initialize_blocks(postgresql, mocker, datadir, tmp_path):
     c.import_month("2012-01-01")
     c.load_blockmonth("2012-01-01")
     c.summary()
-    import IPython
+    if os.getenv("COINBLAS_SHELL") == "1":
+        import IPython
 
-    IPython.embed()
+        IPython.embed()
