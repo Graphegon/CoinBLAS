@@ -87,19 +87,13 @@ class Chain:
             return self.IT @ self.TO
 
     @lazy
-    def ST(self):
-        with semiring.PLUS_MIN:
-            return self.SI @ self.IT
-
-    @lazy
-    def TR(self):
-        with semiring.PLUS_MIN:
-            return self.TO @ self.OR
-
-    @lazy
     def SR(self):
+        with semiring.ANY_SECOND:
+            ST = self.SI @ self.IT
+            TR = self.TO @ self.OR
+
         with semiring.PLUS_MIN:
-            return self.ST @ self.TR
+            return ST @ TR
 
     @lazy
     def TT(self):

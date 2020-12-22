@@ -49,8 +49,8 @@ class Address:
     def bfs_parent(self, depth=lib.GxB_INDEX_MAX):
         SR = self.chain.SR
         q = maximal_vector(INT64)
-        q[self.id] = self.id
         pi = q.dup()
+        q[self.id] = self.id
         for level in range(min(depth + 1, SR.nvals)):
             with semiring.ANY_SECONDI_INT64:
                 q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
