@@ -16,24 +16,59 @@ many sub-paths.  Starting from one output and traversing the graph
 explodes the number of nodes visited in order to search across the
 blockchain.
 
-**Graphegon CoinBLAS Community Edition** is a Graph [Linear
+**Graphegon CoinBLAS Community Edition** is a [Graph Linear
 Algebra](https://en.wikipedia.org/wiki/Linear_algebra) analysis
-platform for bitcoin that uses the [GraphBLAS](https://graphblas.org)
-graph API and the [Python](https://python.org/) programming language
-as a framework for analyzing and solving graph problems over the
-bitcoin hypergraph. If you have enough RAM, Google BigQuery budget,
-cores and time you can load all of bitcoin history into in-memory
-graphs and do full-graph, full-flow analysis using simple, high level
-algebraic syntax.
+platform for Bitcoin that uses the [GraphBLAS](https://graphblas.org)
+graph API and the [Python](https://python.org/) programming language.
+CoinBLAS is as a framework for analyzing and solving graph problems
+over the bitcoin hypergraph.
+
+If you have enough RAM, Google BigQuery budget, cores and time you can
+load all of bitcoin history into in-memory graphs and do full-graph,
+full-flow analysis using simple, high level algebraic syntax.
+
+Or, you can [contact Graphegon](https://graphegon.com/) for a demo of
+their fully hosted multi-currency CoinBLAS system including Jupyter
+Notebook integration and many, many pre-configured Python data science
+goodies.
+
+# The Entire Blockchain fits in RAM
+
+The vast majority of large scale graph analysis platforms take a
+distributed map reduce approach.  Graph vertices are partitioned
+horiziontally into a cluster of database nodes.  A replication factor
+of one vertex per node means every step along the graph has a low
+probability of being stored localy (nanosecond access) and a high
+probabilty of being stored remotely (millisecond access).  These odds
+get worse the bigger the cluster.
+
+This "shuffling" can be avoided by replicating more vertices to more
+nodes, but this explodes the cost of storage and taken to the extreme
+of copying everything means nothing is distributed about it anymore,
+it's just a pool of identical replicas.  Distributed graph
+partitioning is always a lose-lose scenario, but you can trade off one
+set of losses for another and there can be a whole dark art to it if
+there is some exploitable structure in the data.
+
+The SuiteSparse:GraphBLAS library takes a different approach, it
+stores the entire graph in RAM, optimally using sparse and hyersparse
+matrix data structures and a library of pre-compiled graph operations.
+
+SuiteSparse data structures are specially optimized for concurrent
+processing using CPUs and GPUs.  Most cloud providers today can offer
+machines with multiple terabytes of RAM, hundreds of CPU cores, and
+multiple GPUs.  CoinBLAS can run on a laptop or a supercomputer thanks
+to the mathematical abstractions of the GraphBLAS and can process
+billions of edges with no practical upper limit.
 
 ![The entire blockchain in RAM](./docs/RAM.png)
 
-Loading the full blockchain graph takes up to 512GB of memory and
-$1000 worth of BigQuery cost, so that's probably out of most people's
-budgets.  However CoinBLAS can load a month's worth of graph data at a
-time, costing only a few dollars per data-month.  Current memory
-requirements to load all of November 2020 is 12GB of RAM, easily done
-on relatively modest laptop hardware.
+Loading the full blockchain graph using CoinBLAS takes up to 512GB of
+memory and $1000 worth of BigQuery cost, so that's probably out of
+most people's budgets.  However CoinBLAS can load a month's worth of
+graph data at a time, costing only a few dollars per data-month.
+Current memory requirements to load all of November 2020 is 12GB of
+RAM, easily done on relatively modest laptop hardware.
 
 # Intro
 
