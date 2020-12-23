@@ -180,12 +180,11 @@ the flow of *exposure* from one address to another.
 To give an idea of how the semiring works, consider a multi-party flow
 show below.
 
+![Currently defined Incidence Graphs](./docs/AdjacencyTable.png)
+
+
 ![Multi-party Incidence Flow](./docs/AdjacentFlow.png)
-
-Reduction...still working on you.
-
-![Exposure Reduction](./docs/Reduction.png)
-
+ 
 # Usage
 
 There are three modes of the program, initializing, importing, and
