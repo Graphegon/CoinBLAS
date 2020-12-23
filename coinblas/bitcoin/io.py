@@ -12,7 +12,6 @@ class Relation:
     def __init__(self, chain, id, value):
         self.chain = chain
         self.id = id
-        self.t_id = get_tx_id(self.id)
         self.value = value
 
     @lazy
@@ -22,37 +21,40 @@ class Relation:
     @property
     def address(self):
         from .address import Address
+        r = self.chain.OR[self.id]
+        if not r.nvals:
+            return 'unknown'
+        a_id = r.to_lists()[0][0]
+        return Address(self.chain, a_id)
 
-        return Address(self.chain, self.chain.OR[self.id].to_lists()[0][0])
-
-    @lazy
+    @property
     def tx(self):
         from .tx import Tx
 
-        return Tx(self.chain, id=self.t_id)
+        return Tx(self.chain, id=get_tx_id(self.t_id))
 
-    @lazy
-    def spent_vector(self):
+    @property
+    def input_tx(self):
         return self.chain.IT[self.id, :]
 
-    @lazy
+    @property
+    def output_tx(self):
+        return self.chain.TO[:, self.id]
+
+    @property
     def spent(self):
         from .tx import Tx
 
-        if self.spent_vector:
-            return Tx(self.chain, id=self.spent_vector.to_lists()[0][0])
+        if self.input_tx.nvals:
+            return Tx(self.chain, id=self.input_tx.to_lists()[0][0])
 
     def __repr__(self):
         return f"<{self.__class__.__name__}: {self.address} value: {btc(self.value)}>"
 
 
-class Spend(Relation):
+class Input(Relation):
     pass
 
 
-class Exposure(Relation):
-    pass
-
-
-class Parent(Relation):
+class Output(Relation):
     pass

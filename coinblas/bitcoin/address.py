@@ -21,6 +21,9 @@ from pygraphblas import (
     descriptor,
 )
 
+from .tx import Tx
+from .io import Input, Output
+
 
 class Address:
     def __init__(self, chain, id, address=None):
@@ -39,24 +42,52 @@ class Address:
         return curs.fetchone()[0]
 
     @property
-    def sent(self):
+    def sent_v(self):
         return self.chain.SI[self.id, :]
 
     @property
-    def received(self):
+    def received_v(self):
         return self.chain.OR[:, self.id]
 
-    def bfs_step(self, depth=lib.GxB_INDEX_MAX):
+    @property
+    def sent(self):
+        for r_id, v in self.sent_v:
+            yield Input(self.chain, r_id, v)
+
+    @property
+    def received(self):
+        for r_id, v in self.received_v:
+            yield Output(self.chain, r_id, v)
+
+    @property
+    def tx_sender_v(self):
+        return self.chain.ST[self.id, :]
+
+    @property
+    def tx_receiver_v(self):
+        return self.chain.TR[:, self.id]
+
+    @property
+    def tx_sender(self):
+        for a_id, t_id in self.tx_sender_v:
+            yield Tx(self.chain, id=t_id)
+
+    @property
+    def tx_receiver(self):
+        for t_id, a_id in self.tx_sender_v:
+            yield Tx(self.chain, id=t_id)
+
+    def bfs_level(self, depth=lib.GxB_INDEX_MAX):
         SR = self.chain.SR
         q = maximal_vector(INT64)
         pi = q.dup()
         q[self.id] = self.id
-        for step in range(min(depth + 1, SR.nvals)):
+        for level in range(min(depth + 1, SR.nvals)):
             with semiring.ANY_SECONDI_INT64:
                 q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
             if not q:
                 break
-            pi.assign_scalar(step + 1, mask=q, desc=descriptor.S)
+            pi.assign_scalar(level + 1, mask=q, desc=descriptor.S)
         return pi
 
     def bfs_parent(self, depth=lib.GxB_INDEX_MAX):
@@ -87,3 +118,4 @@ class Address:
 
     def __repr__(self):
         return f"<Address: {self.address}>"
+

@@ -6,7 +6,7 @@ from coinblas.util import (
     query,
     lazy,
 )
-from .relation import Spend
+from .io import Input, Output
 
 
 class Tx:
@@ -31,7 +31,10 @@ class Tx:
         """
         SELECT t_hash FROM bitcoin.tx WHERE t_id = {self.id}
         """
-        return curs.fetchone()[0]
+        h = curs.fetchone()
+        if h is None:
+            return None
+        return h[0]
 
     @property
     def block_number(self):
@@ -58,12 +61,12 @@ class Tx:
     @property
     def inputs(self):
         for i, v in self.input_vector:
-            yield Spend(self.chain, i, v)
+            yield Input(self.chain, i, v)
 
     @property
     def outputs(self):
         for i, v in self.output_vector:
-            yield Spend(self.chain, i, v)
+            yield Output(self.chain, i, v)
 
     @curse
     def summary(self, curs):

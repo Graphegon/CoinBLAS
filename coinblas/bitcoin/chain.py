@@ -33,7 +33,6 @@ from coinblas.util import (
 
 from .block import Block
 from .tx import Tx
-from .relation import Spend
 from .address import Address
 
 POOL_SIZE = 8
@@ -335,14 +334,16 @@ class Chain:
                 i_value = t.i_value
                 tx.pending_inputs[i_id] = i_value
                 for i_address in t.i_addresses:
-                    tx.pending_input_addresses.append((i_address, t_id, i_id, i_value))
+                    tx.pending_input_addresses.append(
+                        (i_address, t_id, i_id, i_value))
 
             o_id = tx.id + t.o_index
             if o_id not in tx.pending_outputs:
                 o_value = t.o_value
                 tx.pending_outputs[o_id] = o_value
                 for o_address in t.o_addresses:
-                    tx.pending_output_addresses.append((o_address, t_id, o_id, o_value))
+                    tx.pending_output_addresses.append(
+                        (o_address, t_id, o_id, o_value))
 
         block.finalize(month)
 
@@ -406,14 +407,6 @@ Adjacencies:
     @property
     def min_tx_id(self):
         return self.tx_I.reduce_int(monoid.MIN_MONOID)
-
-    @property
-    def max_tx_id(self):
-        return (
-            self.TO.reduce_vector()
-            .apply(unaryop.POSITIONI_INT64)
-            .reduce_int(monoid.MAX_MONOID)
-        )
 
     def __repr__(self):
         min_block = reduce(min, self.blocks.keys())
