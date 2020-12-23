@@ -3,7 +3,7 @@ from multiprocessing.pool import Pool, ThreadPool
 from itertools import repeat, groupby
 from time import time
 from functools import reduce
-from operator import itemgetter
+from operator import itemgetter, add
 from collections import OrderedDict
 import logging
 
@@ -16,6 +16,7 @@ from pygraphblas import (
     Matrix,
     monoid,
     semiring,
+    binaryop,
     unaryop,
     UINT64,
 )
@@ -53,9 +54,38 @@ class Chain:
     def blocks(self):
         return OrderedDict()
 
-    def merge_block_graphs(self, suffix):
-        with semiring.ANY_SECOND:
-            return sum(getattr(b, suffix) for b in self.blocks.values())
+    def merge_block_graphs(self, suffix, op=binaryop.SECOND):
+        blocks = list(grouper(zip(self.blocks.values(), repeat(suffix)), 2, None))
+
+        self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
+        with op:
+            while len(blocks) > 1:
+                blocks = list(
+                    grouper(self.mapper(self.merge_block_pairs, blocks), 2, None)
+                )
+            return self.merge_block_pairs(blocks[0])
+
+    @lazy
+    def mapper(self):
+        if self.pool_size == 1:
+            return lambda f, s: list(map(f, s))
+        else:
+            thread_pool = ThreadPool(self.pool_size)
+            return lambda f, s: thread_pool.map(f, s, 1)
+
+    def merge_block_pairs(self, pair):
+        left, right = pair
+        if isinstance(left, tuple):
+            lblock, ls = left
+            left = getattr(lblock, ls)
+        if isinstance(right, tuple):
+            rblock, rs = right
+            right = getattr(rblock, rs)
+        if left is None:
+            return right
+        if right is None:
+            return left
+        return left.eadd(right, binaryop.SECOND)
 
     @lazy
     def conn(self):
@@ -82,18 +112,22 @@ class Chain:
         return self.merge_block_graphs("OR")
 
     @lazy
+    def ST(self):
+        return self.merge_block_graphs("ST")
+
+    @lazy
+    def TR(self):
+        return self.merge_block_graphs("TR")
+
+    @lazy
     def IO(self):
         with semiring.PLUS_MIN:
             return self.IT @ self.TO
 
     @lazy
     def SR(self):
-        with semiring.ANY_SECOND:
-            ST = self.SI @ self.IT
-            TR = self.TO @ self.OR
-
         with semiring.PLUS_MIN:
-            return ST @ TR
+            return self.ST @ self.TR
 
     @lazy
     def TT(self):
@@ -291,6 +325,7 @@ class Chain:
                 block.pending_txs[t.t_id] = tx
 
             t_id = t.t_id
+
             spent_tx_id = t.i_spent_tid
             if spent_tx_id is None:
                 tx.pending_inputs[block.id] = 0
@@ -300,38 +335,19 @@ class Chain:
                 i_value = t.i_value
                 tx.pending_inputs[i_id] = i_value
                 for i_address in t.i_addresses:
-                    tx.pending_input_addresses[i_address] = (i_id, i_value)
+                    tx.pending_input_addresses.append((i_address, t_id, i_id, i_value))
 
             o_id = tx.id + t.o_index
             if o_id not in tx.pending_outputs:
                 o_value = t.o_value
                 tx.pending_outputs[o_id] = o_value
                 for o_address in t.o_addresses:
-                    tx.pending_output_addresses[o_address] = (o_id, o_value)
+                    tx.pending_output_addresses.append((o_address, t_id, o_id, o_value))
 
         block.finalize(month)
 
         self.conn.commit()
         self.logger.debug(f"Wrote block {block.number} in {time()-tic:.4f}")
-
-        # if self.pool_size == 1:
-        #     mapper = lambda f, s: list(map(f, s))
-        # else:
-        #     thread_pool = ThreadPool(self.pool_size)
-        #     mapper = lambda f, s: thread_pool.map(f, s, 1)
-
-        # blocks = list(
-        #     grouper(
-        #         zip(((b.hash, b.number) for b in self.blocks.values()), repeat(suffix)),
-        #         2,
-        #         None,
-        #     )
-        # )
-        # self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
-        # while len(blocks) > 1:
-        #     blocks = list(grouper(mapper(self.merge_block_pair, blocks), 2, None))
-        # breakpoint()
-        # return self.merge_block_pair(blocks[0])
 
     def __iter__(self):
         return iter(self.blocks.values())
@@ -369,6 +385,8 @@ Incidence Matrices:
     - TO: {self.TO.nvals:>12} Tx to Outputs.
     - SI: {self.SI.nvals:>12} Senders to Inputs.
     - OR: {self.OR.nvals:>12} Outputs to Receivers.
+    - ST: {self.ST.nvals:>12} Senders to Transactions.
+    - TR: {self.TR.nvals:>12} Transactions to Receivers.
 
 Adjacencies:
     - IO: {self.IO.nvals:>12} edges Inputs to Outputs.

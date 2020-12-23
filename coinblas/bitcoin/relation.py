@@ -20,18 +20,10 @@ class Relation:
         return self.id == get_block_id(self.id)
 
     @property
-    def address(self, curs):
-        """
-        SELECT o_address from bitcoin.output where o_id = {self.id}
-        """
+    def address(self):
         from .address import Address
 
-        if self.coinbase:
-            return Address(self.chain, "coinbase")
-        r = curs.fetchone()
-        if r is None:
-            return
-        return Address(self.chain, r[0])
+        return Address(self.chain, self.chain.OR[self.id].to_lists()[0][0])
 
     @lazy
     def tx(self):
@@ -51,7 +43,7 @@ class Relation:
             return Tx(self.chain, id=self.spent_vector.to_lists()[0][0])
 
     def __repr__(self):
-        return f"<{self.__class__.__name__}: {self.id} value: {btc(self.value)}>"
+        return f"<{self.__class__.__name__}: {self.address} value: {btc(self.value)}>"
 
 
 class Spend(Relation):

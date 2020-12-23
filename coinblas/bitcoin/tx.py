@@ -21,8 +21,8 @@ class Tx:
 
         self.pending_inputs = {}
         self.pending_outputs = {}
-        self.pending_input_addresses = {}
-        self.pending_output_addresses = {}
+        self.pending_input_addresses = []
+        self.pending_output_addresses = []
 
     @lazy
     @curse

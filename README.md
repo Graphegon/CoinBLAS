@@ -175,6 +175,8 @@ being used.  In this case, `PLUS_MIN` is used to take the minimum
 value between any two input/output pairs of a transaction.  This gives
 the flow of *exposure* from one address to another.
 
+![Currently defined Incidence Graphs](./docs/IncidenceTable.png)
+ 
 To give an idea of how the semiring works, consider a multi-party flow
 show below.
 

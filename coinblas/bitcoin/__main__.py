@@ -26,24 +26,24 @@ if __name__ == "__main__":
 
     logger.setLevel(getattr(logging, args.log_level.upper()))
 
-    chain = Chain(args.db, args.block_path, args.pool_size)
+    self = Chain(args.db, args.block_path, args.pool_size)
 
     if args.mode == "init":
-        chain.initialize_blocks()
+        self.initialize_blocks()
         if args.start_date and args.end_date:
-            chain.import_blocktime(args.start_date, args.end_date)
+            self.import_blocktime(args.start_date, args.end_date)
 
     elif args.mode == "import":
-        chain.import_blocktime(args.start_date, args.end_date)
+        self.import_blocktime(args.start_date, args.end_date)
 
     elif args.mode == "query":
         import IPython
 
         if args.start and args.end:
-            chain.load_blockspan(args.start, args.end)
+            self.load_blockspan(args.start, args.end)
         elif args.start_date and args.end_date:
-            chain.load_blocktime(args.start_date, args.end_date)
+            self.load_blocktime(args.start_date, args.end_date)
         IPython.embed()
 
     elif args.mode == "summary":
-        chain.summary()
+        self.summary()
