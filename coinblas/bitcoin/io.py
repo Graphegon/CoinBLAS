@@ -21,9 +21,12 @@ class Relation:
     @property
     def address(self):
         from .address import Address
-        r = self.chain.OR[self.id]
+
+        r = self.chain.ST[self.id]
         if not r.nvals:
-            return 'unknown'
+            r = self.chain.OR[:, self.id]
+            if not r.nvals:
+                return chain.UNKNOWN_ADDRESS
         a_id = r.to_lists()[0][0]
         return Address(self.chain, a_id)
 

@@ -104,8 +104,8 @@ class Block:
     @curse
     def finalize(self, curs, month):
         month = str(month).replace("-", "_")
-        i_addrs = []
-        o_addrs = []
+        i_addrs = defaultdict(list)
+        o_addrs = defaultdict(list)
 
         for t_id, tx in self.pending_txs.items():
             for i, v in tx.pending_inputs.items():
@@ -116,63 +116,62 @@ class Block:
                 blockout = self.BT.get(self.id, t_id, 0)
                 self.BT[self.id, t_id] = blockout + v
 
-            i_addrs += tx.pending_input_addresses
-            o_addrs += tx.pending_output_addresses
+            for a, i in tx.pending_input_addresses.items():
+                i_addrs[a] += i
+            for a, o in tx.pending_output_addresses.items():
+                o_addrs[a] += o
 
-        senders = execute_values(
+        to_insert = [(i,) for i in chain(i_addrs.keys(), o_addrs.keys())]
+
+        curs.connection.commit()
+        execute_values(
             curs,
             f"""
-            WITH
-                i_addrs (a_address, t_id, i_id, value) AS (VALUES %s ORDER BY 3),
-                a_ids AS (
-                    INSERT INTO bitcoin.address (a_address)
-                    SELECT a_address FROM i_addrs
-                    ON CONFLICT DO NOTHING
-                    RETURNING *
-                )
-            SELECT a.a_id, i.t_id, i.i_id, i.value
-            FROM i_addrs i JOIN
-                (SELECT * FROM a_ids UNION SELECT * FROM bitcoin.address) a
-            USING(a_address)
+            INSERT INTO bitcoin.address (a_address)
+            VALUES %s ORDER BY 1
+            ON CONFLICT DO NOTHING
             """,
-            i_addrs,
-            fetch=True,
+            to_insert,
             page_size=10000,
         )
-        assert len(senders) == len(i_addrs)
+        curs.connection.commit()
+
+        curs.execute(
+            """
+            SELECT a_address, a_id from bitcoin.address where a_address = any(%s)
+            """,
+            (list(i_addrs.keys()),),
+        )
+        i_ids = dict(curs.fetchall())
+
+        assert len(i_ids) == len(i_addrs)
+
         sas = defaultdict(int)
-        for a_id, t_id, i_id, i_value in senders:
-            self.SI[a_id, i_id] = i_value
-            sas[(a_id, t_id)] += i_value
+        for a_address, inputs in i_addrs.items():
+            a_id = i_ids[a_address]
+            for (t_id, i_id, i_value) in inputs:
+                self.SI[a_id, i_id] = i_value
+                sas[(a_id, t_id)] += i_value
 
         for (a_id, t_id), i_value in sas.items():
             self.ST[a_id, t_id] = i_value
 
-        receivers = execute_values(
-            curs,
-            f"""
-            WITH
-                o_addrs (a_address, t_id, o_id, value) AS (VALUES %s ORDER BY 3),
-                a_ids AS (
-                    INSERT INTO bitcoin.address (a_address)
-                    SELECT a_address FROM o_addrs
-                    ON CONFLICT DO NOTHING
-                    RETURNING *
-                )
-            SELECT a.a_id, o.t_id, o.o_id, o.value
-            FROM o_addrs o JOIN
-                (SELECT * FROM a_ids UNION select * from bitcoin.address) a
-            USING(a_address)
+        curs.execute(
+            """
+            SELECT a_address, a_id from bitcoin.address where a_address = any(%s)
             """,
-            o_addrs,
-            fetch=True,
-            page_size=10000,
+            (list(o_addrs.keys()),),
         )
-        assert len(receivers) == len(o_addrs)
+        o_ids = dict(curs.fetchall())
+
+        assert len(o_ids) == len(o_addrs)
+
         ras = defaultdict(int)
-        for a_id, t_id, o_id, o_value in receivers:
-            self.OR[o_id, a_id] = o_value
-            ras[(a_id, t_id)] += o_value
+        for a_address, outputs in o_addrs.items():
+            a_id = o_ids[a_address]
+            for (t_id, o_id, o_value) in outputs:
+                self.OR[o_id, a_id] = o_value
+                ras[(a_id, t_id)] += o_value
 
         for (a_id, t_id), o_value in ras.items():
             self.TR[t_id, a_id] = o_value
@@ -185,6 +184,7 @@ class Block:
             [(t.id, t.hash) for t in self.pending_txs.values()],
             page_size=10000,
         )
+        curs.connection.commit()
 
         execute_values(
             curs,
@@ -196,7 +196,7 @@ class Block:
                   FROM (VALUES %s) v(id)) s
         WHERE b_number = {self.number}
             """,
-            [(a[1],) for a in o_addrs],
+            [(a,) for a in o_ids.values()],
             page_size=10000,
         )
         self.write_block_files(self.chain.block_path)

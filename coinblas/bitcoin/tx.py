@@ -1,3 +1,5 @@
+from collections import defaultdict
+
 from coinblas.util import (
     btc,
     curse,
@@ -21,8 +23,8 @@ class Tx:
 
         self.pending_inputs = {}
         self.pending_outputs = {}
-        self.pending_input_addresses = []
-        self.pending_output_addresses = []
+        self.pending_input_addresses = defaultdict(list)
+        self.pending_output_addresses = defaultdict(list)
 
     @lazy
     @curse

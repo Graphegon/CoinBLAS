@@ -118,4 +118,3 @@ class Address:
 
     def __repr__(self):
         return f"<Address: {self.address}>"
-

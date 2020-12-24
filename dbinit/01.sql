@@ -70,6 +70,8 @@ CREATE TABLE bitcoin.address(
 CREATE INDEX ON bitcoin.address
     USING btree(a_address);
 
+INSERT INTO bitcoin.address (a_id, a_address) VALUES (0, 'unknown');
+
 CREATE OR REPLACE PROCEDURE bitcoin.create_month(timestamp_month date)
     LANGUAGE plpgsql AS
 $$

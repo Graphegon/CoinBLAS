@@ -42,6 +42,7 @@ logger = logging.getLogger(__name__)
 
 
 class Chain:
+
     def __init__(self, dsn, block_path, pool_size=POOL_SIZE, logger=logger):
         self.chain = self
         self.dsn = dsn
@@ -50,13 +51,16 @@ class Chain:
         self.logger = logger
 
     @lazy
+    def UNKNOWN_ADDRESS(self):
+        return Address(self, 0)
+
+    @lazy
     def blocks(self):
         return OrderedDict()
 
     def merge_block_graphs(self, suffix, op=binaryop.SECOND):
+        self.logger.debug(f"Merging {len(self.blocks)} {suffix} blocks.")
         blocks = list(grouper(zip(self.blocks.values(), repeat(suffix)), 2, None))
-
-        self.logger.debug(f"Merging {len(blocks)} {suffix} blocks.")
         with op:
             while len(blocks) > 1:
                 blocks = list(
@@ -334,16 +338,14 @@ class Chain:
                 i_value = t.i_value
                 tx.pending_inputs[i_id] = i_value
                 for i_address in t.i_addresses:
-                    tx.pending_input_addresses.append(
-                        (i_address, t_id, i_id, i_value))
+                    tx.pending_input_addresses[i_address].append((t_id, i_id, i_value))
 
             o_id = tx.id + t.o_index
             if o_id not in tx.pending_outputs:
                 o_value = t.o_value
                 tx.pending_outputs[o_id] = o_value
                 for o_address in t.o_addresses:
-                    tx.pending_output_addresses.append(
-                        (o_address, t_id, o_id, o_value))
+                    tx.pending_output_addresses[o_address].append((t_id, o_id, o_value))
 
         block.finalize(month)
 
@@ -353,6 +355,7 @@ class Chain:
     def __iter__(self):
         return iter(self.blocks.values())
 
+    @property
     def summary(self):
         min_tx = Tx(self, id=self.min_tx_id)
         max_tx = Tx(self, id=self.max_tx_id)
@@ -363,7 +366,7 @@ class Chain:
         in_val = self.IT.reduce_int()
         out_val = self.TO.reduce_int()
 
-        print(
+        return (
             f"""
 Blocks:
     - min: {min_tx.block_number}

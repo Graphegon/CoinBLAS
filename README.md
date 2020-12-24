@@ -4,17 +4,16 @@
 Bitcoin present a particularly stubborn graph analysis problem:
 transactions can have many inputs and outputs, all of which can be
 created at will by the network's users forming a very large sparse
-[Hypergraph](https://en.wikipedia.org/wiki/Hypergraph) bundling old
-transaction outputs into new transaction inputs.
+[Hypergraph](https://en.wikipedia.org/wiki/Hypergraph) bundling
+previous transaction outputs into new transaction inputs.
 
-The Bitcoin hypergraph has extremely high [Graph
-Diameter](https://en.wikipedia.org/wiki/Distance_(graph_theory)) that
-likely approaches the number of blocks in the chain.  Value can flow
-forward in time through many, many transactions on its way from one
-address to another, and each transaction along the way can branch into
-many sub-paths.  Starting from one output and traversing the graph
-explodes the number of nodes visited in order to search across the
-blockchain.
+The Bitcoin hypergraph has an extremely high divergent [Graph
+Diameter](https://en.wikipedia.org/wiki/Distance_(graph_theory)).
+Value can flow forward in time through many, many transactions on its
+way from one address to many others, and each transaction along the
+way can branch into many sub-paths.  Starting from one output and
+traversing the graph explodes the number of nodes visited in order to
+search across the blockchain.
 
 **Graphegon CoinBLAS Community Edition** is a [Graph Linear
 Algebra](https://en.wikipedia.org/wiki/Linear_algebra) analysis
@@ -23,14 +22,17 @@ graph API and the [Python](https://python.org/) programming language.
 CoinBLAS is as a framework for analyzing and solving graph problems
 over the bitcoin hypergraph.
 
-If you have enough RAM, Google BigQuery budget, cores and time you can
-load all of bitcoin history into in-memory graphs and do full-graph,
-full-flow analysis using simple, high level algebraic syntax.
+CoinBLAS uses Google BigQuery to load blockchain data.  If you have
+enough RAM, Google BigQuery budget, cores and time you can load all of
+bitcoin history into in-memory graphs and do full-graph, full-flow
+analysis using simple, high level algebraic syntax.  This can be
+expensive so make sure you know what you're getting into if you decide
+to run CoinBLAS locally.
 
 Or, you can [contact Graphegon](https://graphegon.com/) for a demo of
-their fully hosted multi-currency CoinBLAS system including Jupyter
-Notebook integration and many, many pre-configured Python data science
-goodies.
+a fully hosted multi-currency CoinBLAS system including a REST API,
+Jupyter Notebook integration and many, many pre-configured Python data
+science goodies.
 
 # The Entire Blockchain fits in RAM
 
@@ -50,9 +52,11 @@ partitioning is always a lose-lose scenario, but you can trade off one
 set of losses for another and there can be a whole dark art to it if
 there is some exploitable structure in the data.
 
-The SuiteSparse:GraphBLAS library takes a different approach, it
-stores the entire graph in RAM, optimally using sparse and hyersparse
-matrix data structures and a library of pre-compiled graph operations.
+Using the SuiteSparse:GraphBLAS library, CoinBLAS takes a different
+approach: it stores the entire graph in RAM, optimally using sparse
+and hypersparse matrix data structures and a library of pre-compiled
+graph operations that take advantage of Linear Algebra's powerful
+transformations.
 
 SuiteSparse data structures are specially optimized for concurrent
 processing using CPUs and GPUs.  Most cloud providers today can offer
@@ -68,31 +72,34 @@ memory and $1000 worth of BigQuery cost, so that's probably out of
 most people's budgets.  However CoinBLAS can load a month's worth of
 graph data at a time, costing only a few dollars per data-month.
 Current memory requirements to load all of November 2020 is 12GB of
-RAM, easily done on relatively modest laptop hardware.
+RAM and about $20 USD in BigQuery cost, easily done on relatively
+modest laptop hardware.
 
 # Intro
 
 The core concept of the GraphBLAS is the dualism that graphs and
 matrices are mathematically interchangable: a matrix can represent a
 graph, and a graph can represent a matrix.  Any graph can be converted
-to a matrix and vice versa..  This mathematical communion allows the
-power of [Linear Algebra] to be used to analyze and manipulate graphs
-using [Matrix Multiplication]().
+to a matrix and vice versa.  This mathematical communion allows the
+power of [Linear
+Algebra](https://en.wikipedia.org/wiki/Linear_algebra) to be used to
+analyze and manipulate graphs using [Matrix
+Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
 
 ![Graph Adjacency Matrix](./docs/Adjacency.png)
 
 The core operation of graph algorithms is taking a "step" from a node
-to its neighbors.  Using Linear Algebra, this translates into common
-operation of [Matrix
-Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
-Repeated multiplications traverse the graph in a [Breadth First
+to its neighbors.  Using Linear Algebra, this translates into the
+common operation of Matrix Multiplication.  Looping and repeating
+multiplications traverses the graph in a [Breadth First
 Search](https://en.wikipedia.org/wiki/Breadth-first_search).
 
 Adjacency matrices can represent simple directed and undirected graphs
 between identical kinds of things.  The bitcoin graph however is a
 many to many combinations of inputs and outputs to transactions, the
 inputs being the outputs of previous transactions.  Bitcoin is
-actually a [Hypergraph] and can be constructed using two [Incidence
+actually a [Hypergraph](https://en.wikipedia.org/wiki/Hypergraph) and
+can be constructed using two [Incidence
 Matrices](https://en.wikipedia.org/wiki/Incidence_matrix)
 
 ![Projecting Adjacency from Incidence Matrices](./docs/Incidence.png)
@@ -109,17 +116,6 @@ This immutability confers onto it a *total order* of blocks,
 transactions and outputs.  This order is exploited by CoinBLAS by
 storing the rows and columns of matrices *in the same immutable
 order*.
-
-![Input Output Adjacency projection](./docs/Blocktime.png)
-
-This causes the structure of the Input to Output graph to have edges
-that always point toward the future.  Inputs can only be outputs of
-previous transactions (or coinbase).  This forms a [Directed Acyclic
-Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) that in
-the matrix world forms an Upper [Triangular
-Matrix](https://en.wikipedia.org/wiki/Triangular_matrix):
-
-![DAG forms Upper Triangular Matrix](./docs/DAG.png)
 
 Matrices are two dimensional and typically have dimensions denoted by
 "M by N". Each value has an row and column index into the matrix
@@ -138,11 +134,38 @@ matrix that is effectively "unbounded" by setting M and N to
 `GxB_INDEX_MAX'.  SuiteSparse won't allocate a zillion entries, it
 won't allocate anything in fact until you put stuff in it.
 
-![Currently defined Incidence Graphs](./docs/Dimensions.png)
-
 In a sense, this turns a GraphBLAS matrix into an [Associative
 Array](https://en.wikipedia.org/wiki/Associative_array) which was by
 design, of course.
+
+![Input Output Adjacency projection](./docs/Blocktime.png)
+
+Using blocktime encoding causes the structure of the Input to Output
+graph to have edges that always point towards the future.  Inputs can
+only be outputs of previous transactions (or coinbase that come "from"
+the block).  This forms a [Directed Acyclic
+Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) forms an
+Upper [Triangular
+Matrix](https://en.wikipedia.org/wiki/Triangular_matrix):
+
+![DAG forms Upper Triangular Matrix](./docs/DAG.png)
+
+Now that we have a way of determining the order of blockchain events
+and constructing directed graphs, we can define the entities that are
+used to build up Matrix graphs in memory.  These "dimensions" are the
+various types of conceptual nodes that can be related to each other.
+
+![CoinBLAS Dimensions](./docs/Dimensions.png)
+
+Each of the above entites is used in the incidence matrices below.
+These attributes of the `Chain` object are "lazy" and are only
+computed if they are accessed.
+
+![Currently defined Incidence Graphs](./docs/IncidenceTable.png)
+
+Additional adjacency projections are provided as well:
+ 
+![Currently defined Adjacency Graphs](./docs/AdjacencyTable.png)
 
 By encoding the block number, transaction index, and output index into
 the key used to store elements, CoinBLAS stores graphs in a linear
@@ -155,30 +178,18 @@ This time linear construction defines a way of encoding the matrix
 position of blocks, transactions, and outputs in "block time" so to
 speak, lets see how to store the bitcoin graph as incidence matrices.
 A bitcoin transcation can have multiple inputs and outputs.  The
-inputs are (typically) the outputs of previous transactions.  So our
-incidence matrices will map "Input to Transaction" on one side and
-"Transaction to Output" on the other:
-
-![Currently defined Incidence Graphs](./docs/IncidenceTable.png)
- 
-![Currently defined Incidence Graphs](./docs/AdjacencyTable.png)
-
+inputs are the outputs of previous transactions.  So our incidence
+matrices will map "Input to Transaction" on one side and "Transaction
+to Output" on the other:
 
 ![Block Incidence Flow](./docs/TxFlow.png)
-
-Matrix multiplying `IT` (Input/Transaction) and `TO`
-(Transaction/Output) projects the adjacency matrix `IO`
-(Input/Output).  The values in the projection depend on the semiring
-being used.  In this case, `PLUS_MIN` is used to take the minimum
-value between any two input/output pairs of a transaction.  This gives
-the flow of *exposure* from one address to another.
 
 To give an idea of how the semiring works, consider a multi-party flow
 show below.
 
-
 ![Multi-party Incidence Flow](./docs/AdjacentFlow.png)
  
+
 # Usage
 
 There are three modes of the program, initializing, importing, and
