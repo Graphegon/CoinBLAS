@@ -131,7 +131,7 @@ keyspace: because matrices are *sparse* they only allocate enough
 memory to store their elements.  The MxN are just guardrails to keep
 you from going "out of bounds" on your problem, but you can makes a
 matrix that is effectively "unbounded" by setting M and N to
-`GxB_INDEX_MAX'.  SuiteSparse won't allocate a zillion entries, it
+`GxB_INDEX_MAX`.  SuiteSparse won't allocate a zillion entries, it
 won't allocate anything in fact until you put stuff in it.
 
 In a sense, this turns a GraphBLAS matrix into an [Associative
