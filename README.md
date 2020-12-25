@@ -143,7 +143,7 @@ Graph](https://en.wikipedia.org/wiki/Directed_acyclic_graph) forms an
 Upper [Triangular
 Matrix](https://en.wikipedia.org/wiki/Triangular_matrix):
 
-![DAG forms Upper Triangular Matrix](./docs/DAG.png)
+![DAG forms Upper Triangular Matrix](./docs/Blockspan.png)
 
 Now that we have a way of determining the order of blockchain events
 and constructing directed graphs, we can define the entities that are
