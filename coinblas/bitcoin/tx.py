@@ -3,7 +3,6 @@ from collections import defaultdict
 from coinblas.util import (
     btc,
     curse,
-    get_block_id,
     get_block_number,
     query,
     lazy,
@@ -37,14 +36,6 @@ class Tx:
         if h is None:
             return None
         return h[0]
-
-    @property
-    def block_number(self):
-        return get_block_number(self.id)
-
-    @property
-    def block_id(self):
-        return get_block_id(self.id)
 
     @lazy
     def block(self):

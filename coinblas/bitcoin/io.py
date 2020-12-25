@@ -37,15 +37,7 @@ class Relation:
         return Tx(self.chain, id=get_tx_id(self.t_id))
 
     @property
-    def input_tx(self):
-        return self.chain.IT[self.id, :]
-
-    @property
-    def output_tx(self):
-        return self.chain.TO[:, self.id]
-
-    @property
-    def spent(self):
+    def spent_tx(self):
         from .tx import Tx
 
         if self.input_tx.nvals:

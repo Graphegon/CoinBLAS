@@ -164,7 +164,7 @@ computed if they are accessed.
 ![Currently defined Incidence Graphs](./docs/IncidenceTable.png)
 
 Additional adjacency projections are provided as well:
- 
+
 ![Currently defined Adjacency Graphs](./docs/AdjacencyTable.png)
 
 By encoding the block number, transaction index, and output index into
@@ -265,12 +265,12 @@ want to import from BigQuery.  This is a highly variable cost from a
 few dollars for a single month to >$500 to import the whole chain.
 
     ./coinblas.sh --start-date '2014-01-01' --end-date '2014-05-01' --pool-size 8 import
-	
+
 Optionally, You can init and import *at the same time* by providing a
 time range like import:
 
     ./coinblas.sh --start-date '2014-01-01' --end-date '2014-05-01' --pool-size 8 init
-	
+
 Importing uses the `multiprocessing` module to spawn `--pool-size`
 BigQueries concurrently on month boundaries.  Because Google publishes
 the Bitcoin blockchain partitioned by month, this reduces the amount
@@ -292,7 +292,23 @@ ids to addresses and hashes.
 
     ./coinblas.sh --start-date '2014-01-01' --end-date '2014-05-01' --pool-size 8 query
 
-# Chain API
+# Python API
+
+CoinBLAS provides a simple API to Bitcoin graph data:
+
+- Chain
+
+- Block
+
+- Tx
+
+- Input
+
+- Output
+
+- Address
+
+## Chain
 
 The `Chain` object contains blocks and is the central object in
 CoinBLAS.  It knows about all blocks after initialization, but only a
@@ -314,6 +330,8 @@ currently imported and their block and time span.
 	Blocks time span Wed Jan  1 00:11:09 2014 to Wed Apr 30 23:56:06 2014
 	Total value input 81999527.4824258 output 82512452.4824258
 
+## Block
+
 The blocks in the chain are contained in the attribute `blocks`, which
 is a dictionary that maps block number to Block objects.
 
@@ -325,4 +343,63 @@ Iterating a block iterates over the transactions in the block:
 	>>>	len(list(chain.blocks[278000]))
 	143
 	>>> t1 = list(chain.blocks[278000])[0]
-	
+
+## Tx
+
+- id: The blocktime id of the transaction.
+
+- hash: Tx hash
+
+- block: Block object for Tx
+
+- input_vector: Vector of Input Ids
+
+- inputs: Generator of Input objects.
+
+- output_vector: Vector of Output Ids.
+
+- outputs: Generator of Output objects.
+
+## Input
+
+- coinbase
+
+- tx: Transaction associated with this Input.
+
+- addresses: Addresses assocaited with this Input.
+
+## Output
+
+- tx: Transaction associated with this Output.
+
+- spent_tx: The transaction that spent this output.
+
+- addresses: Addresses assocaited with this Input.
+
+## Address
+
+- sent: Inputs sent by this address.
+
+- received: Outputs received by this address.
+
+- sender_tx_vector: Vector of transaction ids where this address is
+  sender.
+
+- receiver_tx_vector: Vector of transaction ids where this address is
+  receiver.
+
+- sender_txs: Generator of Tx objects where this address is sender.
+
+- receiver_txs: Generator of Tx objects where this address is
+  receiver.
+
+Methods:
+
+- `bfs_level(depth=GxB_INDEX_MAX)`: Do BFS search assigning level to
+  each vertext up to `depth`.
+
+- `bfs_parent(depth=GxB_INDEX_MAX)`: Do BFS search assigning parent id
+  to each vertext up to `depth`.
+
+- `bfs_level(depth=GxB_INDEX_MAX)`: Do BFS search assigning value
+  exposure to to each vertext up to `depth`.
