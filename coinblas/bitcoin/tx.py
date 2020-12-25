@@ -7,7 +7,7 @@ from coinblas.util import (
     query,
     lazy,
 )
-from .io import Input, Output
+from .spend import Spend
 
 
 class Tx:
@@ -37,6 +37,10 @@ class Tx:
             return None
         return h[0]
 
+    @property
+    def block_number(self):
+        return get_block_number(self.id)
+
     @lazy
     def block(self):
         from .block import Block
@@ -54,15 +58,14 @@ class Tx:
     @property
     def inputs(self):
         for i, v in self.input_vector:
-            yield Input(self.chain, i, v)
+            yield Spend(self.chain, i, v)
 
     @property
     def outputs(self):
         for i, v in self.output_vector:
-            yield Output(self.chain, i, v)
+            yield Spend(self.chain, i, v)
 
-    @curse
-    def summary(self, curs):
+    def summary(self):
         print(f"Summary for {self.hash}")
         print(f"Block: {self.block_number}")
 
@@ -74,20 +77,13 @@ class Tx:
         else:
             print("  Inputs")
             for i in inputs:
-                if i.address is None:
-                    print(f"Unknown input {i.id}")
-                    continue
-                print("    ", i)
-                if i.spent_vector:
-                    print(f"        from {i.tx.hash} in block {i.tx.block_number}")
+                print(f"    ", i)
+                print(f"      > from: {i.tx.hash}")
         print("  Outputs")
         for o in outputs:
-            if o.address is None:
-                print(f"Unknown output {i.id}")
-                continue
-            print("    ", o)
-            if o.spent_vector:
-                print(f"        to {o.spent.hash} in block {o.spent.block_number}")
+            print(f"    ", o)
+            if o.spent_tx:
+                print(f"      > spent: {o.spent_tx.hash}")
 
     def __repr__(self):
         return f"<Tx: {self.hash}>"

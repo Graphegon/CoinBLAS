@@ -22,7 +22,7 @@ from pygraphblas import (
 )
 
 from .tx import Tx
-from .io import Input, Output
+from .spend import Spend
 
 
 class Address:
@@ -39,7 +39,10 @@ class Address:
         """
         SELECT a_address FROM bitcoin.address WHERE a_id = {self.id}
         """
-        return curs.fetchone()[0]
+        r = curs.fetchone()
+        if r is None:
+            return
+        return r[0]
 
     @property
     def sent_v(self):
@@ -52,12 +55,12 @@ class Address:
     @property
     def sent(self):
         for r_id, v in self.sent_v:
-            yield Input(self.chain, r_id, v)
+            yield Spend(self.chain, r_id, v)
 
     @property
     def received(self):
         for r_id, v in self.received_v:
-            yield Output(self.chain, r_id, v)
+            yield Spend(self.chain, r_id, v)
 
     @property
     def tx_sender_v(self):

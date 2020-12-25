@@ -42,7 +42,6 @@ logger = logging.getLogger(__name__)
 
 
 class Chain:
-
     def __init__(self, dsn, block_path, pool_size=POOL_SIZE, logger=logger):
         self.chain = self
         self.dsn = dsn
@@ -366,8 +365,7 @@ class Chain:
         in_val = self.IT.reduce_int()
         out_val = self.TO.reduce_int()
 
-        return (
-            f"""
+        return f"""
 Blocks:
     - min: {min_tx.block_number}
     - max: {max_tx.block_number}
@@ -397,7 +395,6 @@ Adjacencies:
     - SR: {self.SR.nvals:>12} Senders to Receivers.
     - TT: {self.TT.nvals:>12} Tx to Tx.
 """
-        )
 
     @property
     def tx_I(self):

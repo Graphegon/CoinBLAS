@@ -29,11 +29,6 @@ analysis using simple, high level algebraic syntax.  This can be
 expensive so make sure you know what you're getting into if you decide
 to run CoinBLAS locally.
 
-Or, you can [contact Graphegon](https://graphegon.com/) for a demo of
-a fully hosted multi-currency CoinBLAS system including a REST API,
-Jupyter Notebook integration and many, many pre-configured Python data
-science goodies.
-
 # The Entire Blockchain fits in RAM
 
 The vast majority of large scale graph analysis platforms take a
@@ -294,19 +289,7 @@ ids to addresses and hashes.
 
 # Python API
 
-CoinBLAS provides a simple API to Bitcoin graph data:
-
-- Chain
-
-- Block
-
-- Tx
-
-- Input
-
-- Output
-
-- Address
+Under Construction!
 
 ## Chain
 
@@ -352,35 +335,30 @@ Iterating a block iterates over the transactions in the block:
 
 - block: Block object for Tx
 
-- input_vector: Vector of Input Ids
+- input_vector: Vector of inputs spend ids
 
-- inputs: Generator of Input objects.
+- inputs: Generator of input Spend objects.
 
-- output_vector: Vector of Output Ids.
+- output_vector: Vector of outputs spend ids.
 
-- outputs: Generator of Output objects.
+- outputs: Generator of output Spend objects.
 
-## Input
+## Spend
 
-- coinbase
+- coinbase: Is this a coinbase input?
 
-- tx: Transaction associated with this Input.
+- tx: Transaction with this spend as output.
 
-- addresses: Addresses assocaited with this Input.
+- addresses: Addresses assocaited with this spend.
 
-## Output
+- spent_tx: Transaction with this spend as input.
 
-- tx: Transaction associated with this Output.
-
-- spent_tx: The transaction that spent this output.
-
-- addresses: Addresses assocaited with this Input.
 
 ## Address
 
-- sent: Inputs sent by this address.
+- sent: Input Spends sent by this address.
 
-- received: Outputs received by this address.
+- received: Output Spends received by this address.
 
 - sender_tx_vector: Vector of transaction ids where this address is
   sender.
