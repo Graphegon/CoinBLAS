@@ -195,6 +195,7 @@ The core function of graph algorithms is the Breadth First Search.
 This implementation of `Address.bfs_level` shows how to traverse the
 graph breadth first, accumulating the step count as you go:
 
+```python
     def bfs_level(self, depth=lib.GxB_INDEX_MAX):
         SR = self.chain.SR
         q = maximal_vector(INT64)
@@ -207,11 +208,13 @@ graph breadth first, accumulating the step count as you go:
                 break
             pi.assign_scalar(level + 1, mask=q, desc=descriptor.S)
         return pi
+```
 
 Using the same trick but with a different semiring, the "BFS Tree" can
 be constructed where every edge weight is the parent "back" to a
 starting node.
 
+```python
     def bfs_parent(self, depth=lib.GxB_INDEX_MAX):
         SR = self.chain.SR
         q = maximal_vector(INT64)
@@ -224,10 +227,12 @@ starting node.
                 break
             pi.assign(q, mask=q, desc=descriptor.S)
         return pi
+```
 
 Finally, with yet another choice of semiring (MIN_MIN) the "exposure"
 radiated foward by any address can be computed.
 
+```python
     def bfs_exposure(self, depth=lib.GxB_INDEX_MAX):
         SR = self.chain.SR
         q = maximal_vector(INT64)
@@ -240,7 +245,7 @@ radiated foward by any address can be computed.
                 break
             pi.assign(q, mask=q, desc=descriptor.S)
         return pi
-
+```
 
 # Usage
 
