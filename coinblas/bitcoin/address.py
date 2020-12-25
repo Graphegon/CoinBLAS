@@ -81,9 +81,9 @@ class Address:
         SR = self.chain.SR
         q = maximal_vector(INT64)
         pi = q.dup()
-        q[self.id] = self.id
+        q[self.id] = 0
         for level in range(min(depth + 1, SR.nvals)):
-            with semiring.ANY_SECONDI_INT64:
+            with semiring.ANY_PAIR_INT64:
                 q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
             if not q:
                 break
@@ -109,7 +109,7 @@ class Address:
         pi = q.dup()
         q[self.id] = lib.GxB_INDEX_MAX
         for level in range(min(depth + 1, SR.nvals)):
-            with semiring.PLUS_MIN_INT64:
+            with semiring.MIN_MIN_INT64:
                 q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
             if not q:
                 break

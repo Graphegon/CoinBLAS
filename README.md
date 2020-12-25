@@ -188,7 +188,59 @@ To give an idea of how the semiring works, consider a multi-party flow
 show below.
 
 ![Multi-party Incidence Flow](./docs/AdjacentFlow.png)
- 
+
+# BFS
+
+The core function of graph algorithms is the Breadth First Search.
+This implementation of `Address.bfs_level` shows how to traverse the
+graph breadth first, accumulating the step count as you go:
+
+    def bfs_level(self, depth=lib.GxB_INDEX_MAX):
+        SR = self.chain.SR
+        q = maximal_vector(INT64)
+        pi = q.dup()
+        q[self.id] = 0
+        for level in range(min(depth + 1, SR.nvals)):
+            with semiring.ANY_PAIR_INT64:
+                q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
+            if not q:
+                break
+            pi.assign_scalar(level + 1, mask=q, desc=descriptor.S)
+        return pi
+
+Using the same trick but with a different semiring, the "BFS Tree" can
+be constructed where every edge weight is the parent "back" to a
+starting node.
+
+    def bfs_parent(self, depth=lib.GxB_INDEX_MAX):
+        SR = self.chain.SR
+        q = maximal_vector(INT64)
+        pi = q.dup()
+        q[self.id] = self.id
+        for level in range(min(depth + 1, SR.nvals)):
+            with semiring.ANY_SECONDI_INT64:
+                q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
+            if not q:
+                break
+            pi.assign(q, mask=q, desc=descriptor.S)
+        return pi
+
+Finally, with yet another choice of semiring (MIN_MIN) the "exposure"
+radiated foward by any address can be computed.
+
+    def bfs_exposure(self, depth=lib.GxB_INDEX_MAX):
+        SR = self.chain.SR
+        q = maximal_vector(INT64)
+        pi = q.dup()
+        q[self.id] = lib.GxB_INDEX_MAX
+        for level in range(min(depth + 1, SR.nvals)):
+            with semiring.MIN_MIN_INT64:
+                q.vxm(SR, out=q, mask=pi, desc=descriptor.RSC)
+            if not q:
+                break
+            pi.assign(q, mask=q, desc=descriptor.S)
+        return pi
+
 
 # Usage
 
