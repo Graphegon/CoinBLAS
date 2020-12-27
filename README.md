@@ -271,13 +271,6 @@ senders that it has shared inputs in transactions with.  We can
 construct this adjacency by using the exising "ST" Sender to
 Transaction graph and matrix multiplying it by it's transpose:
 
-```python
-
-with semiring.PLUS_SECOND:
-    SS = btc.ST @ btc.ST.T
-
-```
-
 ![Entity Reduction](./docs/Entities.png)
 
 The "SS" matrix now contains a row and a column for every sender and
