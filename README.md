@@ -278,10 +278,13 @@ with semiring.PLUS_SECOND:
 
 ```
 
+![Entity Reduction](./docs/Entities.png)
+
 The "SS" matrix now contains a row and a column for every sender and
 an edge from every sender to every other sender they have shared
-transaction with as the sender.  The `PLUS_SECOND` semiring says to
-sum common edges between any two senders.
+transaction with as the sender.  The `PLUS_FIRST` semiring says to sum
+common edges between any two senders but just using the left matrix,
+since the values in the transpose of the matrix are redundant.
 
 # Usage
 
