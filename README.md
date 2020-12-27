@@ -242,6 +242,47 @@ radiated foward by any address can be computed.
         return pi
 ```
 
+# Common Input Ownership
+
+Any bitcoin user can make public key addresses at will, so in theory
+it's hard to track back to the person who "owns" bitcoin.  However,
+there are some heuristics for clustering objects and one of the most
+used heuristics is called common-input-ownership.
+
+To create a bitcoin transaction, a wallet looks for any unspent
+transaction outputs to fit the transaction's value.  These inputs are
+then used in the new transaction, publicly associating them with each
+other as having a common owner.  Inputs of a feather spend together.
+
+There's no end to structural and statistical techniques that can be
+used to cluster addresses, but common-input-ownership is one we can
+quickly demonstrate with CoinBLAS algebraically using the technique
+described by [Reid and
+Harrigan](https://users.encs.concordia.ca/~clark/biblio/bitcoin/Reid%202011.pdf)
+
+	We construct an ancillary network in which each vertex represents a
+	public-key. We connect these vertices with undirected edges, where each
+	edge joins a pair of public keys that are both inputs to the same
+	transaction (and are thus controlled by the same user).
+
+We'll call this new relationship "SS" for Sender to Sender.  The
+result we want in an adjacency matrix of sender with an edge to other
+senders that it has shared inputs in transactions with.  We can
+construct this adjacency by using the exising "ST" Sender to
+Transaction graph and matrix multiplying it by it's transpose:
+
+```python
+
+with semiring.PLUS_SECOND:
+    SS = btc.ST @ btc.ST.T
+
+```
+
+The "SS" matrix now contains a row and a column for every sender and
+an edge from every sender to every other sender they have shared
+transaction with as the sender.  The `PLUS_SECOND` semiring says to
+sum common edges between any two senders.
+
 # Usage
 
 There are three modes of the program, initializing, importing, and
