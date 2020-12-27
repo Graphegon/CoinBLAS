@@ -4,7 +4,6 @@ from coinblas.util import (
     get_block_id,
     get_tx_id,
     query,
-    lazy,
 )
 
 
@@ -25,7 +24,7 @@ class Spend:
                 return []
         return [Address(self.chain, a_id) for a_id, _ in r]
 
-    @lazy
+    @property
     def coinbase(self):
         return self.id == get_block_id(self.id)
 

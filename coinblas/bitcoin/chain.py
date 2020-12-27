@@ -143,6 +143,8 @@ class Chain:
         self.TO = maximal_matrix(UINT64)
         self.SO = maximal_matrix(UINT64)
         self.OR = maximal_matrix(UINT64)
+        self.ST = maximal_matrix(UINT64)
+        self.TR = maximal_matrix(UINT64)
 
     @curse
     def address(self, curs, a):

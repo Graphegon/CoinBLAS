@@ -45,11 +45,11 @@ class Address:
         return r[0]
 
     @property
-    def sent_v(self):
+    def sent_vector(self):
         return self.chain.SI[self.id, :]
 
     @property
-    def received_v(self):
+    def received_vector(self):
         return self.chain.OR[:, self.id]
 
     @property

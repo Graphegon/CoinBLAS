@@ -90,18 +90,6 @@ class Block:
         return self.chain.BT[self.id, :]
 
     @curse
-    def insert(self, curs, bq):
-        curs.execute(
-            """
-        INSERT INTO bitcoin.base_block
-            (b_number, b_hash, b_timestamp, b_timestamp_month)
-        VALUES
-            (%s, %s, %s, %s)
-        """,
-            (self.number, self.hash, bq.timestamp, bq.timestamp_month),
-        )
-
-    @curse
     def finalize(self, curs, month):
         month = str(month).replace("-", "_")
         i_addrs = defaultdict(list)
