@@ -41,17 +41,15 @@ class Tx:
     def block_number(self):
         return get_block_number(self.id)
 
-    @lazy
-    def block(self):
-        from .block import Block
-
-        return Block(self.chain, self.block_number)
-
     @property
+    def block(self):
+        self.chain.blocks[self.block_number]
+
+    @lazy
     def input_vector(self):
         return self.chain.IT[:, self.id]
 
-    @property
+    @lazy
     def output_vector(self):
         return self.chain.TO[self.id, :]
 
@@ -65,25 +63,27 @@ class Tx:
         for i, v in self.output_vector:
             yield Spend(self.chain, i, v)
 
+    @property
     def summary(self):
-        print(f"Summary for {self.hash}")
-        print(f"Block: {self.block_number}")
+        r = f"Tx: {self.hash}\n"
+        r += f"Block: {self.block_number}\n"
 
         inputs = list(self.inputs)
         outputs = self.outputs
 
         if len(inputs) == 1 and inputs[0].coinbase:
-            print("Coinbase Transaction")
+            r += "Coinbase Transaction\n"
         else:
-            print("  Inputs")
+            r += "  Inputs:\n"
             for i in inputs:
-                print(f"    ", i)
-                print(f"      > from: {i.tx.hash}")
-        print("  Outputs")
+                r += f"    {i}\n"
+                r += f"      \\ from: {i.tx.hash}\n"
+        r += "  Outputs:\n"
         for o in outputs:
-            print(f"    ", o)
+            r += f"    {o}\n"
             if o.spent_tx:
-                print(f"      > spent: {o.spent_tx.hash}")
+                r += f"      \\ spent: {o.spent_tx.hash}\n"
+        return r
 
     def __repr__(self):
         return f"<Tx: {self.hash}>"

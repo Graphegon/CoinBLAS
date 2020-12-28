@@ -12,6 +12,7 @@ from coinblas.util import (
     query,
     maximal_matrix,
     lazy,
+    btc,
 )
 
 
@@ -81,7 +82,7 @@ class Block:
     @query
     def timestamp(self, curs):
         """
-        SELECT b_timestamp FROM bitcoin.base_block WHERE b_number  = {self.number}
+        SELECT b_timestamp FROM bitcoin.base_block WHERE b_number = {self.number}
         """
         return curs.fetchone()[0]
 
@@ -210,6 +211,9 @@ class Block:
         self.ST.to_binfile(bytes(STf))
         self.TR.to_binfile(bytes(TRf))
 
+    def __len__(self):
+        return self.tx_vector.nvals
+
     def __iter__(self):
         from .tx import Tx
 
@@ -218,3 +222,13 @@ class Block:
 
     def __repr__(self):
         return f"<Block: {self.number}>"
+
+    @property
+    def summary(self):
+        return f"""
+Block {self.number}:
+Hash: {self.hash}
+Timestamp: {self.timestamp}
+Transactions: {self.tx_vector.nvals}
+Total Output:  {btc(self.BT[self.id].reduce_int())}
+"""

@@ -50,10 +50,6 @@ class Chain:
         self.logger = logger
 
     @lazy
-    def UNKNOWN_ADDRESS(self):
-        return Address(self, 0)
-
-    @lazy
     def blocks(self):
         return OrderedDict()
 

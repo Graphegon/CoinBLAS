@@ -338,31 +338,53 @@ be interested in the most recent blockchain history.
 The chain has a summary method that tells you which blocks are
 currently imported and their block and time span.
 
-    >>> chain.summary()
-	Blocks to Txs: 7657139 values
-	Inputs to Tx: 20646146 values.
-	Tx to Outputs: 23191544 values.
-	Inputs to Outputs: 106256625 values.
-	Tx to Tx: 17816370 values.
-	Blocks span 277996 to 298512
-	Earliest Transaction: 00130e779e075b5b222e077521d55aca806668fe71a1c9111f6748b5b646402c
-	Latest Transaction: fd7d6fc9d98f100f04852ba1f19a202898d50a93f521b599df5ae552f675497d
-	Blocks time span Wed Jan  1 00:11:09 2014 to Wed Apr 30 23:56:06 2014
-	Total value input 81999527.4824258 output 82512452.4824258
+```
+In [1]: print(btc.summary)
+
+Blocks:
+    - min: 654933
+    - max: 659398
+
+Transactions:
+    - earliest: 0018107d14af3779528b2673af25a71278840ab42c2dca04ae2aa40e78983e75
+        - time: Sun Nov  1 00:12:49 2020
+
+    - latest: ffeebb98fa81aad157dfd30ef191642a8092f596d9e67d24ac0aa5c14b16da46
+        - time: Mon Nov 30 23:58:59 2020
+
+Total value:
+    - in: 66674137.55322915 btc.
+    - out: 66702050.05322915 btc.
+
+Incidence Matrices:
+    - BT:      9145550 Blocks to Txs.
+    - IT:     26613475 Inputs to Tx.
+    - TO:     26060065 Tx to Outputs.
+    - SI:     26609128 Senders to Inputs.
+    - OR:     26060181 Outputs to Receivers.
+    - ST:     22569494 Senders to Transactions.
+    - TR:     25893438 Transactions to Receivers.
+
+Adjacencies:
+    - IO:    127405068 edges Inputs to Outputs.
+    - SR:    111390204 Senders to Receivers.
+    - TT:     19917843 Tx to Tx.
+```
 
 ## Block
 
 The blocks in the chain are contained in the attribute `blocks`, which
 is a dictionary that maps block number to Block objects.
 
-    >>> chain.blocks[278000]
-    <Block number: 278000>
+    >>> b = btc.blocks[659398]
+	>>> b
+    <Block number: 659398>
 
 Iterating a block iterates over the transactions in the block:
 
-	>>>	len(list(chain.blocks[278000]))
+	>>>	len(b)
 	143
-	>>> t1 = list(chain.blocks[278000])[0]
+	>>> txs = list(chain.blocks[659398])
 
 ## Tx
 

@@ -57,6 +57,7 @@ def query(f):
 
 
 def curse(func):
+    @wraps(func)
     def _decorator(self, *args, **kwargs):
         with self.chain.conn.cursor() as curs:
             r = func(self, curs, *args, **kwargs)

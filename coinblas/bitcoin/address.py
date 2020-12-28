@@ -63,21 +63,21 @@ class Address:
             yield Spend(self.chain, r_id, v)
 
     @property
-    def tx_sender_v(self):
+    def txs_as_sender_vector(self):
         return self.chain.ST[self.id, :]
 
     @property
-    def tx_receiver_v(self):
+    def txs_as_receiver_vector(self):
         return self.chain.TR[:, self.id]
 
     @property
-    def tx_sender(self):
-        for a_id, t_id in self.tx_sender_v:
+    def txs_as_sender(self):
+        for a_id, t_id in self.txs_as_sender_vector:
             yield Tx(self.chain, id=t_id)
 
     @property
-    def tx_receiver(self):
-        for t_id, a_id in self.tx_sender_v:
+    def txs_as_receiver(self):
+        for t_id, a_id in self.txs_as_receiver_vector:
             yield Tx(self.chain, id=t_id)
 
     def bfs_level(self, depth=lib.GxB_INDEX_MAX):
