@@ -39,7 +39,7 @@ probability of being stored localy (nanosecond access) and a high
 probabilty of being stored remotely (millisecond access).  These odds
 get worse the bigger the cluster.
 
-![The Distributed Graph Database Problem[(./docs/Problem.png)
+![The Distributed Graph Database Problem](./docs/Problem.png)
 
 This "shuffling" can be avoided by replicating more vertices to more
 nodes, but this explodes the cost of storage and taken to the extreme
