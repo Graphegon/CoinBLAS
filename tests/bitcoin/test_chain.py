@@ -15,8 +15,11 @@ postgresql = factories.postgresql(
     "postgresql_my_proc", db_name="test", load=["/docker-entrypoint-initdb.d/01.sql"]
 )
 
+import pytest
 
-def test_initialize_blocks(postgresql, mocker, datadir, tmp_path):
+
+@pytest.fixture
+def btc(postgresql, mocker, datadir, tmp_path):
     q = mocker.patch("google.cloud.bigquery.Client.query", autospec=True)
     q.return_value = pickle.load(open(datadir / "initialize_blocks.pickle", "rb"))
     c = Chain(
@@ -28,8 +31,10 @@ def test_initialize_blocks(postgresql, mocker, datadir, tmp_path):
     q.return_value = pickle.load(open(datadir / "import_month.pickle", "rb"))
     c.import_month("2012-01-01")
     c.load_blockmonth("2012-01-01")
-    print(c.summary)
+    return c
+
+def test_pyshell(btc):
+    print(btc.summary)
     if os.getenv("COINBLAS_SHELL") == "1":
         import IPython
-
         IPython.embed()

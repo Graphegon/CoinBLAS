@@ -41,9 +41,9 @@ class Tx:
     def block_number(self):
         return get_block_number(self.id)
 
-    @property
+    @lazy
     def block(self):
-        self.chain.blocks[self.block_number]
+        return self.chain.blocks[self.block_number]
 
     @lazy
     def input_vector(self):
