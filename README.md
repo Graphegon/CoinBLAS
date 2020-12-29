@@ -72,7 +72,7 @@ Current memory requirements to load all of November 2020 is 12GB of
 RAM and about $20 USD in BigQuery cost, easily done on relatively
 modest laptop hardware.
 
-# Intro
+# Matrix Multplication is Graph Traversal
 
 The core concept of the GraphBLAS is the dualism that graphs and
 matrices are mathematically interchangable: a matrix can represent a
@@ -85,11 +85,11 @@ Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
 
 ![Graph Adjacency Matrix](./docs/Adjacency.png)
 
-The core operation of graph algorithms is taking a "step" from a node
-to its neighbors.  Using Linear Algebra, this translates into the
-common operation of Matrix Multiplication.  Looping and repeating
-multiplications traverses the graph in a [Breadth First
-Search](https://en.wikipedia.org/wiki/Breadth-first_search).
+The core operation of any graph algorithms is taking a "step" from a
+node to its neighbors.  In the "Matrix View" of a graph, this
+operation is Matrix Multiplication.  Therefore, repeated
+multiplication on the same matrix *traverses* the graph in a [Breadth
+First Search](https://en.wikipedia.org/wiki/Breadth-first_search).
 
 Adjacency matrices can represent simple directed and undirected graphs
 between identical kinds of things.  The bitcoin graph however is a
@@ -280,6 +280,10 @@ an edge from every sender to every other sender they have shared
 transaction with as the sender.  The `PLUS_FIRST` semiring says to sum
 common edges between any two senders but just using the left matrix,
 since the values in the transpose of the matrix are redundant.
+
+# The Future
+
+![Thinking in Graphs](./docs/Lego.png)
 
 # Usage
 
