@@ -1,6 +1,11 @@
 
 ![Logo](./docs/Logo.png)
 
+**Graphegon CoinBLAS Community Edition** is a [Graph Linear
+Algebra](https://en.wikipedia.org/wiki/Linear_algebra) analysis
+platform for Bitcoin that uses the [GraphBLAS](https://graphblas.org)
+graph API and the [Python](https://python.org/) programming language.
+
 Bitcoin presents a particularly stubborn graph analysis problem:
 transactions with multiple inputs, outputs and addresses can be
 created at will by the network's users forming a very large sparse
@@ -14,11 +19,6 @@ through many, many transactions on its way from one address to many
 others, and each transaction along the way can branch into many
 sub-paths.  Starting from one output and traversing the graph explodes
 the number of transactions visited in order to search the blockchain.
-
-**Graphegon CoinBLAS Community Edition** is a [Graph Linear
-Algebra](https://en.wikipedia.org/wiki/Linear_algebra) analysis
-platform for Bitcoin that uses the [GraphBLAS](https://graphblas.org)
-graph API and the [Python](https://python.org/) programming language.
 
 The GraphBLAS brings a powerful abstract mathematical language to
 graph analysis that can be run on a very wide range of hardware from
