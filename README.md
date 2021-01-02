@@ -199,7 +199,7 @@ In a sense, this turns a GraphBLAS matrix into an [Associative
 Array](https://en.wikipedia.org/wiki/Associative_array) which was by
 design, of course.
 
-![Input Output Adjacency projection](./docs/Blocktime.png)
+![Input Output Adjacency projection](./docs/Blocktime.jpg)
 
 Using blocktime encoding causes the structure of the Input to Output
 graph to have edges that always point towards the future.  Inputs can
