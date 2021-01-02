@@ -1,43 +1,92 @@
 
 ![Logo](./docs/Logo.png)
 
-Bitcoin present a particularly stubborn graph analysis problem:
-transactions can have many inputs and outputs, all of which can be
+Bitcoin presents a particularly stubborn graph analysis problem:
+transactions with multiple inputs, outputs and addresses can be
 created at will by the network's users forming a very large sparse
 [Hypergraph](https://en.wikipedia.org/wiki/Hypergraph) bundling
 previous transaction outputs into new transaction inputs.
 
-The Bitcoin hypergraph has an extremely high divergent [Graph
-Diameter](https://en.wikipedia.org/wiki/Distance_(graph_theory)).
-Value can flow forward in time through many, many transactions on its
-way from one address to many others, and each transaction along the
-way can branch into many sub-paths.  Starting from one output and
-traversing the graph explodes the number of nodes visited in order to
-search across the blockchain.
+The Bitcoin hypergraph is extremely divergent, and has a high [Graph
+Diameter](https://en.wikipedia.org/wiki/Distance_(graph_theory)).  As
+bitcoin is (in a sense) indestructible, value flows forward in time
+through many, many transactions on its way from one address to many
+others, and each transaction along the way can branch into many
+sub-paths.  Starting from one output and traversing the graph explodes
+the number of transactions visited in order to search the blockchain.
 
 **Graphegon CoinBLAS Community Edition** is a [Graph Linear
 Algebra](https://en.wikipedia.org/wiki/Linear_algebra) analysis
 platform for Bitcoin that uses the [GraphBLAS](https://graphblas.org)
 graph API and the [Python](https://python.org/) programming language.
-CoinBLAS is as a framework for analyzing and solving graph problems
-over the bitcoin hypergraph.
 
-CoinBLAS uses Google BigQuery to load blockchain data.  If you have
-enough RAM, Google BigQuery budget, cores and time you can load all of
-bitcoin history into in-memory graphs and do full-graph, full-flow
-analysis using simple, high level algebraic syntax.  This can be
-expensive so make sure you know what you're getting into if you decide
-to run CoinBLAS locally.
+The GraphBLAS brings a powerful abstract mathematical language to
+graph analysis that can be run on a very wide range of hardware from
+phones to supercomputers. The design of the GraphBLAS is optimized to
+take advantage of as much parallel hardware as is available with no
+changes to the running code.  The combination of abstract
+expressibility and heterogeneous scaling is what makes CoinBLAS a very
+powerful tool for bitcoin graph analysis.
 
-# The Entire Blockchain fits in RAM
+A key component of CoinBLAS is the
+[SuiteSparse:GraphBLAS](https://people.engr.tamu.edu/davis/GraphBLAS.html)
+implementation by Dr. Tim Davis of Texas A&M University.  Dr. Davis is
+the world's leading expert hypersparse graph computing.  He is the
+core author of the MATLAB sparse matrix and Python's scipy.sparse
+libraries.  SuiteSparse represents the state of the art of decades of
+parallel sparse matrix research and has recently acheived support for
+Nvidia CUDA GPUs.
+
+For the moment, CoinBLAS uses Google BigQuery to load blockchain data
+into SuiteSparse binary graph data files.  Work is in progress to load
+CoinBLAS graph data from a local bitcoin network node, although this
+will eventually be the best way to run CoinBLAS, it will also be the
+slowest as it requires loading all blocks the first time.  The
+advantage of BigQuery is that it can parallel load any time range of
+blocks for more focused analysis.
+
+If you have enough RAM, Google BigQuery budget, cores and time you can
+load all of bitcoin history into in-memory graphs and do full-graph,
+full-flow analysis using simple, high level algebraic syntax.  This
+can be expensive so make sure you know what you're getting into if you
+decide to run a full CoinBLAS import locally.
+
+# The GraphBLAS is Matrix Centric
+
+The core concept of the GraphBLAS is the dualism that graphs and
+matrices are mathematically interchangable: a matrix can represent a
+graph, and a graph can represent a matrix.  Any graph can be converted
+to a matrix and vice versa.  This mathematical isomorphism allows the
+power of [Linear
+Algebra](https://en.wikipedia.org/wiki/Linear_algebra) to be used to
+analyze and manipulate graphs using [Matrix
+Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
+
+GraphBLAS matrices *only store the edges present in the graph* which
+makes them [Sparse
+Matricies](https://en.wikipedia.org/wiki/Sparse_matrix).  Vertices are
+the rows and columns in the matrix, in a sense "coordinates" in a
+(practically) infinite hyper edgespace.  You can map your vertex
+addresses to whatever entities in your problem you want and then store
+edges from source to destination vertices.
+
+This is conceptually a big difference from most other graph processing
+systems and languages which are typically Vertex (or Node) centric.
+Usualling providing some API or query language where you can start
+from a node, and traverse edges with various rules.  While the
+GraphBLAS can work vertex at a time, it's true power lies in its
+ability to work large chunks of the graph in parallel using a simple,
+abstract, algebraic syntax.
+
+# The Distributed Graph Database Problem
 
 The vast majority of large scale graph analysis platforms take a
-distributed map reduce approach.  Graph vertices are partitioned
+distributed "map reduce" approach.  Graph vertices are partitioned
 horiziontally into a cluster of database nodes.  A replication factor
 of one vertex per node means every step along the graph has a low
-probability of being stored localy (nanosecond access) and a high
-probabilty of being stored remotely (millisecond access).  These odds
-get worse the bigger the cluster.
+probability of being accessible localy in nanoseconds and a high
+probabilty of being accessible remotely in millisecond.  These odds
+and latencies get worse the bigger the cluster.
 
 ![The Distributed Graph Database Problem](./docs/Problem.png)
 
@@ -49,44 +98,56 @@ partitioning is always a lose-lose scenario, but you can trade off one
 set of losses for another and there can be a whole dark art to it if
 there is some exploitable structure in the data.
 
-Using the SuiteSparse:GraphBLAS library, CoinBLAS takes a different
-approach: it stores the entire graph in RAM, optimally using sparse
-and hypersparse matrix data structures and a library of pre-compiled
-graph operations that take advantage of Linear Algebra's powerful
-transformations.
+The GraphBLAS does not attempt to solve this problem, instead it
+sidesteps it entirely: using the SuiteSparse:GraphBLAS library,
+CoinBLAS stores the entire Bitcoin graph in RAM, optimally using
+sparse and hypersparse matrix data structures and a library of
+pre-compiled graph operations that take advantage of Linear Algebra's
+powerful transformations.
+
+For database-centric thinking, this may seem like a step backwards,
+but for large scale forward thinking graph processing needs, it's an
+immense liberation.  Database clusters are *obscenely* expensive.  You
+must either pay a cloud cluster provider (like Citus Data) to provide
+a pre-canned cluster or you have to hire at least one, and more like
+2-3 full time cluster administrators.  Tack onto that the additional
+markup the cloud provider like AWS is charging for the actual hardware
+that the cluster provider passes onto you.
+
+With CoinBLAS you can run it locally on your laptop for small scale
+analysis, and then fire up a pay-by-the-second cloud node when you
+need to do full-chain or all-graph analysis and tear it down when
+you're done.  For less than $10K USD you can get a desktop workstation
+with 64 CPU cores and 512GB of RAM.  This is the capacity equivalent
+of an 8-node cluster of 8 CPUs and 64GB of RAM each, *but without the
+remote access latency* or 3x cloud costs. Toss in a couple of GPUs and
+you can do large scale parallel graph analysis with thousands of cores
+locally on a single machine.
 
 SuiteSparse data structures are specially optimized for concurrent
 processing using CPUs and GPUs.  Most cloud providers today can offer
 machines with multiple terabytes of RAM, hundreds of CPU cores, and
-multiple GPUs.  CoinBLAS can run on a laptop or a supercomputer thanks
-to the mathematical abstractions of the GraphBLAS and can process
-billions of edges with no practical upper limit.
+multiple GPUs with tens of thousands of cores.  CoinBLAS can run on a
+laptop or a supercomputer thanks to the mathematical abstractions of
+the GraphBLAS and can process billions of edges with no practical
+upper limit.
 
 ![The entire blockchain in RAM](./docs/RAM.png)
 
-Loading the full blockchain graph using CoinBLAS takes up to 512GB of
-memory and $1000 worth of BigQuery cost, so that's probably out of
-most people's budgets.  However CoinBLAS can load a month's worth of
-graph data at a time, costing only a few dollars per data-month.
-Current memory requirements to load all of November 2020 is 12GB of
-RAM and about $20 USD in BigQuery cost, easily done on relatively
-modest laptop hardware.
+Loading the full blockchain graph using CoinBLAS could take up to
+512GB of memory and $1000 worth of BigQuery cost, so that's probably
+out of most people's budgets.  However CoinBLAS can load a month's
+worth of graph data at a time, costing only a few dollars per
+data-month.  Current memory requirements to load all of November 2020
+is 32GB of RAM and about $20 USD in BigQuery cost, easily done on
+relatively modest laptop hardware.
 
 # Matrix Multplication is Graph Traversal
-
-The core concept of the GraphBLAS is the dualism that graphs and
-matrices are mathematically interchangable: a matrix can represent a
-graph, and a graph can represent a matrix.  Any graph can be converted
-to a matrix and vice versa.  This mathematical communion allows the
-power of [Linear
-Algebra](https://en.wikipedia.org/wiki/Linear_algebra) to be used to
-analyze and manipulate graphs using [Matrix
-Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
 
 ![Graph Adjacency Matrix](./docs/Adjacency.png)
 
 The core operation of any graph algorithms is taking a "step" from a
-node to its neighbors.  In the "Matrix View" of a graph, this
+vertex to its neighbors.  In the "Matrix View" of a graph, this
 operation is Matrix Multiplication.  Therefore, repeated
 multiplication on the same matrix *traverses* the graph in a [Breadth
 First Search](https://en.wikipedia.org/wiki/Breadth-first_search).
@@ -101,18 +162,21 @@ Matrices](https://en.wikipedia.org/wiki/Incidence_matrix)
 
 ![Projecting Adjacency from Incidence Matrices](./docs/Incidence.png)
 
-Incidence however now requires two steps to get from one node to
-another, but no worries, to recover Adjacency, Incidence matrices can
-be *projected* to an adjacency matrix using, you guessed it, Matrix
-Multiplication:
+Incidence however now requires two steps to get from one vertex to
+another, but no worries, incidence matrices can be *projected* to an
+adjacency matrix using, you guessed it, Matrix Multiplication:
 
 ![Projecting Adjacency from Incidence Matrices](./docs/Projection.png)
+
+# Blocktime Addressing of Blocks, Transactions and Outputs
 
 The bitcoin blockchain is an immutable record of past transactions.
 This immutability confers onto it a *total order* of blocks,
 transactions and outputs.  This order is exploited by CoinBLAS by
 storing the rows and columns of matrices *in the same immutable
-order*.
+order*.  For the purposes of CoinBLAS, this order is called
+"Blocktime", not to be confused with the concept of how long it takes
+for the network to produce new blocks.
 
 Matrices are two dimensional and typically have dimensions denoted by
 "M by N". Each value has an row and column index into the matrix
@@ -150,7 +214,7 @@ Matrix](https://en.wikipedia.org/wiki/Triangular_matrix):
 Now that we have a way of determining the order of blockchain events
 and constructing directed graphs, we can define the entities that are
 used to build up Matrix graphs in memory.  These "dimensions" are the
-various types of conceptual nodes that can be related to each other.
+various types of conceptual vertices that can be related to each other.
 
 ![CoinBLAS Dimensions](./docs/Dimensions.png)
 
@@ -209,7 +273,7 @@ graph breadth first, accumulating the step count as you go:
 
 Using the same trick but with a different semiring, the "BFS Tree" can
 be constructed where every edge weight is the parent "back" to a
-starting node.
+starting vertex.
 
 ```python
     def bfs_parent(self, depth=lib.GxB_INDEX_MAX):
@@ -283,7 +347,30 @@ since the values in the transpose of the matrix are redundant.
 
 # The Future
 
+CoinBLAS as it is today is just a starting point, a platform for
+advanced analysis and computation with modern, high performance
+hardware.  It provides a few building blocks of Bitcoin graph
+structure to get started.  There is a whole world of complex analysis
+out there, and the blocks provided by CoinBLAS and sparse matrix
+linear algebra form the basis for an entire new way of thinking about
+Graph analysis.
+
+This is a fun diagram to get into thinking The GraphBLAS way.  On the
+left is a diagram from a recent paper [Fast Graphlet Transform of
+Sparse Graphs](https://arxiv.org/abs/2007.11111) and on the right are,
+of course [Lego blocks](https://en.wikipedia.org/wiki/Lego).
+
 ![Thinking in Graphs](./docs/Lego.png)
+
+The idea here is that complex graphs can be broken down into
+orthogonal spectral components that describe the local structural
+characteristics of graphs and subgraphs.  These spectral components
+can then form the actual data inputs to more advanced deep and
+statistical machine learning models.  This entire body of work has
+been done in the language of Linear Algebra and represents an exciting
+new way of doing component analysis on complex graphs.  Future
+releases of CoinBLAS will include spectral analysis functions like
+this.
 
 # Usage
 
@@ -333,6 +420,22 @@ ids to addresses and hashes.
 # Python API
 
 Under Construction!
+
+It's worth pointing out that although CoinBLAS provides an object
+oriented interface to Bitcoin, the intention is not to use these
+objects to do graph analysis, that's what the GraphBLAS API functions
+are for.  For example, you could start with an Address object and
+iterate its output objects, but that would be slow and serialized and
+involve lots of slow Python garbage collection.  A better approach is
+to use the Addresses `sent_vector` attribute to create a GraphBLAS
+Vector object of the sent input ids and then use that vector as an
+input to an algebraic expression that computes the result you want.
+
+These object types are instead meant to make working with the data as
+inputs and outpus a bit easier than raw vectors and matrices.  So, use
+these objects and their attributes to setup an analysis pass or get
+the final result, but use the GraphBLAS itself for the actual number
+crunching.
 
 ## Chain
 
@@ -386,13 +489,43 @@ is a dictionary that maps block number to Block objects.
 	>>> b
     <Block number: 659398>
 
-Iterating a block iterates over the transactions in the block:
+Iterating a block iterates over the transactions in the block.
 
+```python
 	>>>	len(b)
 	143
 	>>> txs = list(chain.blocks[659398])
+	>>> print(txs[0].summary)
+	Tx: 001890dc59d2b1be406d64257886c6d6f23a5588263818b7d327cf9a6e73ce5d
+	Block: 659398
+	  Inputs:
+		<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.04798607>
+		  \ from: 302097069cfe4d6b07c9809cfb57b354a1a08f9795529c4c4ef487fdb886b145
+		<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.01954829>
+		  \ from: d26fecb98a44ac687442be2d2309337360af5e9033cd2fe15409e17d2d1308a2
+	  Outputs:
+		<Spend: [<Address: 1LVZDUYnaowWiR4TYQeTuTv94vf8MHwKHz>] value: 0.05299481>
+		  \ spent: 1df733d17cb4a8a203032a58538738d3571692aae266f8024fb7e3cccd2f2aa1
+		<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.01419716>
+		  \ spent: 17e0c7872d2dc79483190992ef93e3f80c7d48ac055dc4d89351ad4e738df4dd
+```
+
+- `initialize_blocks()`: This loads all the block metadata from BigQuery.
+
+- `import_blocktime(start, end)`: Import block graph data from
+  BigQuery for the specified date range.
+  
+- `load_blocktime(start, end)`: Load and merge imported block graph
+  data into a single in memory graph between start and end time.
+  
+- `load_blockspan(start_block, end_block)`: Load and merge imported block graph
+  data into a single in memory graph between start and end block numbers.
+
+- `summary`: A text description of the currently loaded blockspan.
 
 ## Tx
+
+A Tx wraps a transaction.
 
 - id: The blocktime id of the transaction.
 
@@ -408,22 +541,34 @@ Iterating a block iterates over the transactions in the block:
 
 - outputs: Generator of output Spend objects.
 
+- summary: A text description of the transactions.
+
 ## Spend
+
+A spend wraps a transaction output.  Since outputs are used as inputs
+to subsequent transactions, the same object is also used for inputs.
 
 - coinbase: Is this a coinbase input?
 
 - tx: Transaction with this spend as output.
 
-- addresses: Addresses assocaited with this spend.
+- spent_tx: Transaction with this spend as input or None if unspent.
 
-- spent_tx: Transaction with this spend as input.
+- addresses: Addresses assocaited with this spend.
 
 
 ## Address
 
-- sent: Input Spends sent by this address.
+An Address wraps a bitcoin public key address.
 
-- received: Output Spends received by this address.
+- sent_vector: Vector of spend ids sent by this address into a transaction.
+
+- received_vector: Vector of spend ids received by this address from a
+  transaction.
+
+- sent: Generator of Input Spends sent by this address into a transaction.
+
+- received: Generator of Output Spends received by this address from a transaction.
 
 - sender_tx_vector: Vector of transaction ids where this address is
   sender.
@@ -438,8 +583,8 @@ Iterating a block iterates over the transactions in the block:
 
 Methods:
 
-- `bfs_level(depth=GxB_INDEX_MAX)`: Do BFS search assigning level to
-  each vertext up to `depth`.
+- `bfs_level(depth=GxB_INDEX_MAX)`: Do BFS search assigning hop
+  distance from this address to adjacent address up to `depth`.
 
 - `bfs_parent(depth=GxB_INDEX_MAX)`: Do BFS search assigning parent id
   to each vertext up to `depth`.
