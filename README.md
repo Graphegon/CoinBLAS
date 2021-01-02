@@ -491,29 +491,31 @@ Adjacencies:
 The blocks in the chain are contained in the attribute `blocks`, which
 is a dictionary that maps block number to Block objects.
 
-    >>> b = btc.blocks[659398]
-	>>> b
-    <Block number: 659398>
+```
+>>> b = btc.blocks[659398]
+>>> b
+<Block number: 659398>
+```
 
 Iterating a block iterates over the transactions in the block.
 
-```python
-	>>>	len(b)
-	143
-	>>> txs = list(chain.blocks[659398])
-	>>> print(txs[0].summary)
-	Tx: 001890dc59d2b1be406d64257886c6d6f23a5588263818b7d327cf9a6e73ce5d
-	Block: 659398
-	  Inputs:
-		<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.04798607>
-		  \ from: 302097069cfe4d6b07c9809cfb57b354a1a08f9795529c4c4ef487fdb886b145
-		<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.01954829>
-		  \ from: d26fecb98a44ac687442be2d2309337360af5e9033cd2fe15409e17d2d1308a2
-	  Outputs:
-		<Spend: [<Address: 1LVZDUYnaowWiR4TYQeTuTv94vf8MHwKHz>] value: 0.05299481>
-		  \ spent: 1df733d17cb4a8a203032a58538738d3571692aae266f8024fb7e3cccd2f2aa1
-		<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.01419716>
-		  \ spent: 17e0c7872d2dc79483190992ef93e3f80c7d48ac055dc4d89351ad4e738df4dd
+```
+>>>	len(b)
+143
+>>> txs = list(chain.blocks[659398])
+>>> print(txs[0].summary)
+Tx: 001890dc59d2b1be406d64257886c6d6f23a5588263818b7d327cf9a6e73ce5d
+Block: 659398
+  Inputs:
+	<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.04798607>
+	  \ from: 302097069cfe4d6b07c9809cfb57b354a1a08f9795529c4c4ef487fdb886b145
+	<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.01954829>
+	  \ from: d26fecb98a44ac687442be2d2309337360af5e9033cd2fe15409e17d2d1308a2
+  Outputs:
+	<Spend: [<Address: 1LVZDUYnaowWiR4TYQeTuTv94vf8MHwKHz>] value: 0.05299481>
+	  \ spent: 1df733d17cb4a8a203032a58538738d3571692aae266f8024fb7e3cccd2f2aa1
+	<Spend: [<Address: 3Q4bKhz912NLvjJ8UzizFDJbegDkKbGNAF>] value: 0.01419716>
+	  \ spent: 17e0c7872d2dc79483190992ef93e3f80c7d48ac055dc4d89351ad4e738df4dd
 ```
 
 - `initialize_blocks()`: This loads all the block metadata from BigQuery.
