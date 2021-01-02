@@ -31,7 +31,7 @@ powerful tool for bitcoin graph analysis.
 A key component of CoinBLAS is the
 [SuiteSparse:GraphBLAS](https://people.engr.tamu.edu/davis/GraphBLAS.html)
 implementation by Dr. Tim Davis of Texas A&M University.  Dr. Davis is
-the world's leading expert hypersparse graph computing.  He is the
+the world's leading expert on hypersparse graph computing.  He is the
 core author of the MATLAB sparse matrix and Python's scipy.sparse
 libraries.  SuiteSparse represents the state of the art of decades of
 parallel sparse matrix research and has recently acheived support for
@@ -64,7 +64,7 @@ Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
 
 GraphBLAS matrices *only store the edges present in the graph* which
 makes them [Sparse
-Matricies](https://en.wikipedia.org/wiki/Sparse_matrix).  Vertices are
+Matrices](https://en.wikipedia.org/wiki/Sparse_matrix).  Vertices are
 the rows and columns in the matrix, in a sense "coordinates" in a
 (practically) infinite hyper edgespace.  You can map your vertex
 addresses to whatever entities in your problem you want and then store
@@ -105,6 +105,8 @@ sparse and hypersparse matrix data structures and a library of
 pre-compiled graph operations that take advantage of Linear Algebra's
 powerful transformations.
 
+![The entire blockchain in RAM](./docs/RAM.png)
+
 For database-centric thinking, this may seem like a step backwards,
 but for large scale forward thinking graph processing needs, it's an
 immense liberation.  Database clusters are *obscenely* expensive.  You
@@ -131,8 +133,6 @@ multiple GPUs with tens of thousands of cores.  CoinBLAS can run on a
 laptop or a supercomputer thanks to the mathematical abstractions of
 the GraphBLAS and can process billions of edges with no practical
 upper limit.
-
-![The entire blockchain in RAM](./docs/RAM.png)
 
 Loading the full blockchain graph using CoinBLAS could take up to
 512GB of memory and $1000 worth of BigQuery cost, so that's probably
@@ -426,15 +426,21 @@ oriented interface to Bitcoin, the intention is not to use these
 objects to do graph analysis, that's what the GraphBLAS API functions
 are for.  For example, you could start with an Address object and
 iterate its output objects, but that would be slow and serialized and
-involve lots of slow Python garbage collection.  A better approach is
-to use the Addresses `sent_vector` attribute to create a GraphBLAS
-Vector object of the sent input ids and then use that vector as an
-input to an algebraic expression that computes the result you want.
+involve lots of slow Python garbage collection.
 
-These object types are instead meant to make working with the data as
-inputs and outpus a bit easier than raw vectors and matrices.  So, use
-these objects and their attributes to setup an analysis pass or get
-the final result, but use the GraphBLAS itself for the actual number
+A better approach is to use the Addresses `sent_vector` attribute to
+create a GraphBLAS Vector object of the sent input ids and then use
+that vector as an input to an algebraic expression that computes the
+result you want.  In other words, don't write your algorithms directly
+in Python, use Python to *drive* GraphBLAS API calls that do the bulk
+of the work.  In a properly turned algorithm, the amount of CPU time
+spent in Python should "vanish" behind the immense bulk of multicore
+work being done by the GraphBLAS.
+
+These object types are meant to make working with the data as inputs
+and outpus a bit easier than raw vectors and matrices.  So, use these
+objects and their attributes to setup an analysis pass or get the
+final result, but use the GraphBLAS itself for the actual number
 crunching.
 
 ## Chain
@@ -514,10 +520,10 @@ Iterating a block iterates over the transactions in the block.
 
 - `import_blocktime(start, end)`: Import block graph data from
   BigQuery for the specified date range.
-  
+
 - `load_blocktime(start, end)`: Load and merge imported block graph
   data into a single in memory graph between start and end time.
-  
+
 - `load_blockspan(start_block, end_block)`: Load and merge imported block graph
   data into a single in memory graph between start and end block numbers.
 
@@ -527,58 +533,58 @@ Iterating a block iterates over the transactions in the block.
 
 A Tx wraps a transaction.
 
-- id: The blocktime id of the transaction.
+- `id`: The blocktime id of the transaction.
 
-- hash: Tx hash
+- `hash`: Tx hash
 
-- block: Block object for Tx
+- `block`: Block object for Tx
 
-- input_vector: Vector of inputs spend ids
+- `input_vector`: Vector of inputs spend ids
 
-- inputs: Generator of input Spend objects.
+- `inputs`: Generator of input Spend objects.
 
-- output_vector: Vector of outputs spend ids.
+- `output_vector`: Vector of outputs spend ids.
 
-- outputs: Generator of output Spend objects.
+- `outputs`: Generator of output Spend objects.
 
-- summary: A text description of the transactions.
+- `summary`: A text description of the transactions.
 
 ## Spend
 
 A spend wraps a transaction output.  Since outputs are used as inputs
 to subsequent transactions, the same object is also used for inputs.
 
-- coinbase: Is this a coinbase input?
+- `coinbase`: Is this a coinbase input?
 
-- tx: Transaction with this spend as output.
+- `tx`: Transaction with this spend as output.
 
-- spent_tx: Transaction with this spend as input or None if unspent.
+- `spent_tx`: Transaction with this spend as input or None if unspent.
 
-- addresses: Addresses assocaited with this spend.
+- `addresses`: Addresses assocaited with this spend.
 
 
 ## Address
 
 An Address wraps a bitcoin public key address.
 
-- sent_vector: Vector of spend ids sent by this address into a transaction.
+- `sent_vector`: Vector of spend ids sent by this address into a transaction.
 
-- received_vector: Vector of spend ids received by this address from a
+- `received_vector`: Vector of spend ids received by this address from a
   transaction.
 
-- sent: Generator of Input Spends sent by this address into a transaction.
+- `sent`: Generator of Input Spends sent by this address into a transaction.
 
-- received: Generator of Output Spends received by this address from a transaction.
+- `received`: Generator of Output Spends received by this address from a transaction.
 
-- sender_tx_vector: Vector of transaction ids where this address is
+- `sender_tx_vector`: Vector of transaction ids where this address is
   sender.
 
-- receiver_tx_vector: Vector of transaction ids where this address is
+- `receiver_tx_vector`: Vector of transaction ids where this address is
   receiver.
 
-- sender_txs: Generator of Tx objects where this address is sender.
+- `sender_txs`: Generator of Tx objects where this address is sender.
 
-- receiver_txs: Generator of Tx objects where this address is
+- `receiver_txs`: Generator of Tx objects where this address is
   receiver.
 
 Methods:
