@@ -68,7 +68,7 @@ GraphBLAS matrices *only store the edges present in the graph* which
 makes them [Sparse
 Matrices](https://en.wikipedia.org/wiki/Sparse_matrix).  Vertices are
 the rows and columns in the matrix, in a sense "coordinates" in a
-(practically) infinite hyper edgespace.  You can map your vertex
+(practically) infinite hypersparse edgespace.  You can map your vertex
 addresses to whatever entities in your problem you want and then store
 edges from source to destination vertices.
 
@@ -146,13 +146,13 @@ relatively modest laptop hardware.
 
 # Matrix Multplication is Graph Traversal
 
-![Graph Adjacency Matrix](./docs/Adjacency.png)
-
 The core operation of any graph algorithms is taking a "step" from a
 vertex to its neighbors.  In the "Matrix View" of a graph, this
 operation is Matrix Multiplication.  Therefore, repeated
 multiplication on the same matrix *traverses* the graph in a [Breadth
 First Search](https://en.wikipedia.org/wiki/Breadth-first_search).
+
+![Graph Adjacency Matrix](./docs/Adjacency.png)
 
 Adjacency matrices can represent simple directed and undirected graphs
 between identical kinds of things.  The bitcoin graph however is a
@@ -178,7 +178,9 @@ transactions and outputs.  This order is exploited by CoinBLAS by
 storing the rows and columns of matrices *in the same immutable
 order*.  For the purposes of CoinBLAS, this order is called
 "Blocktime", not to be confused with the concept of how long it takes
-for the network to produce new blocks.
+for the network to produce new blocks often referred to as Block Time,
+which isn't very interesting in this context so I'm repurposing the
+word.
 
 Matrices are two dimensional and typically have dimensions denoted by
 "M by N". Each value has an row and column index into the matrix
@@ -226,7 +228,10 @@ computed if they are accessed.
 
 ![Currently defined Incidence Graphs](./docs/IncidenceTable.png)
 
-Additional adjacency projections are provided as well:
+Additional adjacency projections are provided in the next table, and
+as you'll see below, new adjacencies are easly constructed by
+multiplying different combinations of incidence matrices and
+semirings:
 
 ![Currently defined Adjacency Graphs](./docs/AdjacencyTable.png)
 
