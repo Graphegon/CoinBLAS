@@ -15,10 +15,10 @@ previous transaction outputs into new transaction inputs.
 The Bitcoin hypergraph is extremely divergent, and has a high [Graph
 Diameter](https://en.wikipedia.org/wiki/Distance_(graph_theory)).  As
 bitcoin is (in a sense) indestructible, value flows forward in time
-through many, many transactions on its way from one address to many
-others, and each transaction along the way can branch into many
-sub-paths.  Starting from one output and traversing the graph explodes
-the number of transactions visited in order to search the blockchain.
+through many transactions on its way from one address to many others,
+and each transaction along the way can branch into many sub-paths.
+Starting from one output and traversing the graph explodes the number
+of transactions visited in order to search the blockchain.
 
 The GraphBLAS brings a powerful abstract mathematical language to
 graph analysis that can be run on a very wide range of hardware from
@@ -61,6 +61,8 @@ power of [Linear
 Algebra](https://en.wikipedia.org/wiki/Linear_algebra) to be used to
 analyze and manipulate graphs using [Matrix
 Multiplication](https://en.wikipedia.org/wiki/Matrix_multiplication).
+
+![Graph Matrix Isomorphism](./docs/Dual.png)
 
 GraphBLAS matrices *only store the edges present in the graph* which
 makes them [Sparse
