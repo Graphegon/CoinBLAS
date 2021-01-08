@@ -219,34 +219,6 @@ class Chain:
         for b in curs.fetchall():
             self.blocks[b[0]] = Block(self, b[0], b[1])
 
-    def import_blocktime(self, start, end):
-        with pg.connect(self.dsn) as conn:
-            with conn.cursor() as curs:
-                curs.execute(
-                    """select i::date
-                    from generate_series(%s::date, %s::date, interval '1 month') i
-                    """,
-                    (start, end),
-                )
-                months = [x[0] for x in curs.fetchall()]
-        if self.pool_size == 1:
-            result = list(map(self.import_month, months))
-        else:
-            pool = Pool(self.pool_size)
-            result = list(pool.map(self.import_month, months, 1))
-
-        return result
-
-    @curse
-    def create_month(self, curs, month):
-        self.logger.debug(f"Creating partitions for {month}")
-        curs.execute(f"CALL bitcoin.create_month('{month}')")
-
-    @curse
-    def index_and_attach(self, curs, month):
-        self.logger.debug(f"Indexing and attaching partitions for {month}")
-        curs.execute(f"CALL bitcoin.index_and_attach('{month}')")
-
     @curse
     @query
     def check_block_imported(self, curs):
@@ -256,98 +228,6 @@ class Chain:
         )
         """
         return curs.fetchone() is not None
-
-    # @retry(stop=stop_after_attempt(3))
-    def import_month(self, month):
-        tic = time()
-        client = bigquery.Client()
-
-        self.create_month(month)
-
-        self.logger.info(f"Loading {month}")
-
-        query = f"""
-        WITH TIDS AS (
-            SELECT
-                block_number,
-                block_hash,
-                block_timestamp,
-                block_timestamp_month, `hash`, inputs, outputs,
-                (block_number << 32) + (ROW_NUMBER()
-                    OVER(PARTITION BY block_number ORDER BY block_number, `hash`) << 16) AS t_id
-        FROM `bigquery-public-data.crypto_bitcoin.transactions`
-        ORDER BY block_number, `hash`)
-
-        SELECT
-            t.t_id as t_id,
-            t.block_number as b_number,
-            t.block_hash as b_hash,
-            t.block_timestamp as b_timestamp,
-            t.block_timestamp_month as b_timestamp_month,
-            t.`hash` as t_hash,
-            spents.t_id as i_spent_tid,
-            i.spent_output_index as i_spent_index,
-            i.addresses as i_addresses,
-            i.value as i_value,
-            i.index as i_index,
-            o.index as o_index,
-            o.addresses as o_addresses,
-            o.value as o_value
-        FROM tids t LEFT JOIN UNNEST(inputs) as i,
-        UNNEST(outputs) as o
-        LEFT JOIN tids spents on (i.spent_transaction_hash = spents.`hash`)
-        WHERE t.block_timestamp_month = '{month}'
-        ORDER BY t.block_number, t.`hash`, i.index, o.index
-        """
-        for bn, group in groupby(client.query(query), itemgetter("b_number")):
-            if self.check_block_imported(bn):
-                self.logger.debug(f"Block {bn} already done.")
-                continue
-            self.build_block_graph(group, bn, month)
-
-        self.index_and_attach(month)
-        self.conn.commit()
-        self.logger.info(f"Took {(time() - tic)/60.0} minutes for {month}")
-
-    def build_block_graph(self, group, bn, month):
-
-        t_id = None
-        block = None
-        tic = time()
-
-        for t in map(Object, group):
-
-            if block is None:
-                block = Block(self, t.b_number, t.b_hash)
-
-            if t_id != t.t_id:
-                tx = Tx(self, t.t_id, t.t_hash, block)
-                block.pending_txs[t.t_id] = tx
-
-            t_id = t.t_id
-
-            spent_tx_id = t.i_spent_tid
-            if spent_tx_id is None:
-                tx.pending_inputs[block.id] = 0
-
-            elif spent_tx_id + t.i_spent_index not in tx.pending_inputs:
-                i_id = spent_tx_id + t.i_spent_index
-                i_value = t.i_value
-                tx.pending_inputs[i_id] = i_value
-                for i_address in t.i_addresses:
-                    tx.pending_input_addresses[i_address].append((t_id, i_id, i_value))
-
-            o_id = tx.id + t.o_index
-            if o_id not in tx.pending_outputs:
-                o_value = t.o_value
-                tx.pending_outputs[o_id] = o_value
-                for o_address in t.o_addresses:
-                    tx.pending_output_addresses[o_address].append((t_id, o_id, o_value))
-
-        block.finalize(month)
-
-        self.conn.commit()
-        self.logger.debug(f"Wrote block {block.number} in {time()-tic:.4f}")
 
     def __iter__(self):
         return iter(self.blocks.values())
@@ -392,6 +272,8 @@ Adjacencies:
     - IO: {self.IO.nvals:>12} edges Inputs to Outputs.
     - SR: {self.SR.nvals:>12} Senders to Receivers.
     - TT: {self.TT.nvals:>12} Tx to Tx.
+
+Total Edges in All Graphs:  {sum([x.nvals for x in [self.BT, self.IT, self.TO, self.SI, self.OR, self.ST, self.TR, self.IO, self.SR, self.TT]])}
 """
 
     @property
