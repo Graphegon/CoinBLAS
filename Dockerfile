@@ -1,4 +1,4 @@
-ARG BASE_CONTAINER=graphblas/pygraphblas-notebook:v4.0.1Dec7
+ARG BASE_CONTAINER=graphblas/pygraphblas-notebook:v4.0.3
 FROM ${BASE_CONTAINER}
 ADD . /home/jovyan/coinblas
 USER root

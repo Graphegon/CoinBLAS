@@ -52,6 +52,7 @@ class Block:
     @lazy
     def SI(self):
         """ Incidence Matrix from Sender Address id rows to Input id columns. """
+        breakpoint()
         return self.load_block_graph("SI")
 
     @lazy
@@ -204,13 +205,33 @@ class Block:
         STf = b / Path(f"{self.number}_{self.hash}_ST.ssb")
         TRf = b / Path(f"{self.number}_{self.hash}_TR.ssb")
 
-        self.BT.to_binfile(bytes(BTf))
-        self.IT.to_binfile(bytes(ITf))
-        self.TO.to_binfile(bytes(TOf))
-        self.SI.to_binfile(bytes(SIf))
-        self.OR.to_binfile(bytes(ORf))
-        self.ST.to_binfile(bytes(STf))
-        self.TR.to_binfile(bytes(TRf))
+        self.BT
+        with open(BTf, 'wb') as btf:
+            self.BT.to_binfile(btf)
+
+        self.IT
+        with open(ITf, 'wb') as itf:
+            self.IT.to_binfile(itf)
+
+        self.TO
+        with open(TOf, 'wb') as tof:
+            self.TO.to_binfile(tof)
+
+        self.SI
+        with open(SIf, 'wb') as sif:
+            self.SI.to_binfile(sif)
+
+        self.OR
+        with open(ORf, 'wb') as orf:
+            self.OR.to_binfile(orf)
+
+        self.ST
+        with open(STf, 'wb') as stf:
+            self.ST.to_binfile(stf)
+
+        self.TR
+        with open(TRf, 'wb') as trf:
+            self.TR.to_binfile(trf)
 
     def __len__(self):
         return self.tx_vector.nvals
