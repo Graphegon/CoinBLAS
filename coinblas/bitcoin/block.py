@@ -31,7 +31,7 @@ class Block:
         datafile = prefix / f"{self.number}_{bhash}_{suffix}.ssb"
         if not datafile.exists():
             return maximal_matrix(UINT64)
-        return Matrix.from_binfile(datafile)
+        return Matrix.from_binfile(bytes(datafile))
 
     @lazy
     def BT(self):
@@ -51,7 +51,6 @@ class Block:
     @lazy
     def SI(self):
         """ Incidence Matrix from Sender Address id rows to Input id columns. """
-        breakpoint()
         return self.load_block_graph("SI")
 
     @lazy
@@ -204,13 +203,13 @@ class Block:
         STf = b / Path(f"{self.number}_{self.hash}_ST.ssb")
         TRf = b / Path(f"{self.number}_{self.hash}_TR.ssb")
 
-        self.BT.to_binfile(BTf)
-        self.IT.to_binfile(ITf)
-        self.TO.to_binfile(TOf)
-        self.SI.to_binfile(SIf)
-        self.OR.to_binfile(ORf)
-        self.ST.to_binfile(STf)
-        self.TR.to_binfile(TRf)
+        self.BT.to_binfile(bytes(BTf))
+        self.IT.to_binfile(bytes(ITf))
+        self.TO.to_binfile(bytes(TOf))
+        self.SI.to_binfile(bytes(SIf))
+        self.OR.to_binfile(bytes(ORf))
+        self.ST.to_binfile(bytes(STf))
+        self.TR.to_binfile(bytes(TRf))
 
     def __len__(self):
         return self.tx_vector.nvals
