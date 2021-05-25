@@ -31,8 +31,7 @@ class Block:
         datafile = prefix / f"{self.number}_{bhash}_{suffix}.ssb"
         if not datafile.exists():
             return maximal_matrix(UINT64)
-        with open(datafile, 'r') as f:
-            return Matrix.from_binfile(f)
+        return Matrix.from_binfile(datafile)
 
     @lazy
     def BT(self):
@@ -205,33 +204,13 @@ class Block:
         STf = b / Path(f"{self.number}_{self.hash}_ST.ssb")
         TRf = b / Path(f"{self.number}_{self.hash}_TR.ssb")
 
-        self.BT
-        with open(BTf, 'wb') as btf:
-            self.BT.to_binfile(btf)
-
-        self.IT
-        with open(ITf, 'wb') as itf:
-            self.IT.to_binfile(itf)
-
-        self.TO
-        with open(TOf, 'wb') as tof:
-            self.TO.to_binfile(tof)
-
-        self.SI
-        with open(SIf, 'wb') as sif:
-            self.SI.to_binfile(sif)
-
-        self.OR
-        with open(ORf, 'wb') as orf:
-            self.OR.to_binfile(orf)
-
-        self.ST
-        with open(STf, 'wb') as stf:
-            self.ST.to_binfile(stf)
-
-        self.TR
-        with open(TRf, 'wb') as trf:
-            self.TR.to_binfile(trf)
+        self.BT.to_binfile(BTf)
+        self.IT.to_binfile(ITf)
+        self.TO.to_binfile(TOf)
+        self.SI.to_binfile(SIf)
+        self.OR.to_binfile(ORf)
+        self.ST.to_binfile(STf)
+        self.TR.to_binfile(TRf)
 
     def __len__(self):
         return self.tx_vector.nvals
