@@ -31,7 +31,8 @@ class Block:
         datafile = prefix / f"{self.number}_{bhash}_{suffix}.ssb"
         if not datafile.exists():
             return maximal_matrix(UINT64)
-        return Matrix.from_binfile(bytes(datafile))
+        with open(datafile, 'r') as f:
+            return Matrix.from_binfile(f)
 
     @lazy
     def BT(self):
