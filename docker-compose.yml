@@ -12,22 +12,16 @@ services:
       - ./database-data:/var/lib/postgresql/data/
       - ./dbinit:/docker-entrypoint-initdb.d/
       - ./backup:/backup/
-  builder:
-    build: .
-    volumes:
-      - .:/home/jovyan/coinblas
-      - ./dbinit:/docker-entrypoint-initdb.d/
-    environment:
-      COINBLAS_DB: "host=db dbname=coinblas user=postgres password=postgres"
-      COINBLAS_PATH: /home/jovyan/coinblas/database-blocks
-      GOOGLE_APPLICATION_CREDENTIALS: /home/jovyan/coinblas/pgsodium-e46130a430c2.json
-  notebook:
+  coinblas:
     build: .
     ports:
       - "8888:8888"
     volumes:
       - .:/home/jovyan/coinblas
+    working_dir: /home/jovyan/coinblas/Notebooks
     environment:
       NB_UID: 1000
       NB_GID: 1000
+      COINBLAS_DB: "host=db dbname=coinblas user=postgres password=postgres"
+      COINBLAS_PATH: /home/jovyan/coinblas/database-blocks
       GOOGLE_APPLICATION_CREDENTIALS: /home/jovyan/coinblas/pgsodium-e46130a430c2.json
