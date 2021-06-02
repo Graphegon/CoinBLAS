@@ -7,4 +7,5 @@ pytest
 pytest-mock
 pytest-datadir
 pytest-postgresql
+ipython
 python-bitcoinrpc
